@@ -13,13 +13,6 @@ const SkillProgress = ({
   color = "cyan",
   delay = 0,
 }: SkillProgressProps) => {
-  const colors = {
-    cyan: "from-primary to-primary",
-    purple: "from-accent to-accent",
-    green: "from-emerald-500 to-emerald-500",
-    orange: "from-orange-500 to-orange-500",
-  };
-
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -31,7 +24,7 @@ const SkillProgress = ({
           initial={{ width: 0 }}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 0.8, delay, ease: "easeOut" }}
-          className={`h-full rounded-full bg-gradient-to-r ${colors[color]}`}
+          className="h-full rounded-full progress-gradient"
         />
       </div>
     </div>

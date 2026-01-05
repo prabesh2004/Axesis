@@ -1,5 +1,6 @@
-import { useState, ReactNode } from "react";
+import { ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useSidebar } from "@/contexts/SidebarContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
@@ -10,17 +11,14 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebar();
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
+      <Sidebar collapsed={collapsed} onToggle={toggle} />
       <motion.div
-        initial={{ marginLeft: 240 }}
-        animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
+        initial={{ marginLeft: collapsed ? 72 : 240 }}
+        animate={{ marginLeft: collapsed ? 72 : 240 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         <Header title={title} subtitle={subtitle} />
