@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { useState, ReactNode } from "react";
 import { motion } from "framer-motion";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
@@ -10,10 +10,19 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div className="ml-[240px] transition-all duration-300">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+      <motion.div
+        initial={{ marginLeft: 240 }}
+        animate={{ marginLeft: sidebarCollapsed ? 72 : 240 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
         <Header title={title} subtitle={subtitle} />
         <motion.main
           initial={{ opacity: 0, y: 20 }}
@@ -23,7 +32,7 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
         >
           {children}
         </motion.main>
-      </div>
+      </motion.div>
     </div>
   );
 };
