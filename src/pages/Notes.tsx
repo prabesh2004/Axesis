@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import NoteCard from "@/components/cards/NoteCard";
+import NoteEditor from "@/components/notes/NoteEditor";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Plus } from "lucide-react";
@@ -57,6 +59,8 @@ const notes = [
 ];
 
 const Notes = () => {
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
   return (
     <DashboardLayout
       title="Notes"
@@ -75,7 +79,10 @@ const Notes = () => {
           <Filter className="w-4 h-4" />
           Filter
         </Button>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => setIsEditorOpen(true)}
+        >
           <Plus className="w-4 h-4" />
           New Note
         </Button>
@@ -92,6 +99,9 @@ const Notes = () => {
           <NoteCard key={note.title} {...note} delay={index * 0.1} />
         ))}
       </motion.div>
+
+      {/* Note Editor Modal */}
+      <NoteEditor isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} />
     </DashboardLayout>
   );
 };
