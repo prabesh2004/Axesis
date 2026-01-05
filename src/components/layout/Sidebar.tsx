@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,8 +18,12 @@ const navItems = [
   { icon: Sparkles, label: "AI Insights", path: "/ai-insights" },
 ];
 
-const Sidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
 
   return (
@@ -93,7 +96,7 @@ const Sidebar = () => {
       {/* Collapse Button */}
       <div className="p-3 border-t border-sidebar-border">
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggle}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-200"
         >
           <motion.div

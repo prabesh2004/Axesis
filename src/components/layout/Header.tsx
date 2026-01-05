@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Search, Bell, Settings, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -39,9 +40,12 @@ const Header = ({ title, subtitle }: HeaderProps) => {
             <Settings className="w-5 h-5 text-muted-foreground" />
           </button>
 
-          <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+          <Link
+            to="/login"
+            className="p-2 rounded-lg hover:bg-secondary transition-colors"
+          >
             <User className="w-5 h-5 text-muted-foreground" />
-          </button>
+          </Link>
         </div>
       </div>
     </header>
