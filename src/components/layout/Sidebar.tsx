@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -58,7 +58,7 @@ const Sidebar = () => {
             const isActive = location.pathname === item.path;
             return (
               <li key={item.path}>
-                <NavLink
+                <Link
                   to={item.path}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
                     isActive
@@ -83,7 +83,7 @@ const Sidebar = () => {
                       </motion.span>
                     )}
                   </AnimatePresence>
-                </NavLink>
+                </Link>
               </li>
             );
           })}
