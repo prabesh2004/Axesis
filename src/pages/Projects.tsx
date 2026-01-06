@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import ProjectCard from "@/components/cards/ProjectCard";
+import ProjectEditor from "@/components/projects/ProjectEditor";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Plus } from "lucide-react";
@@ -47,6 +49,23 @@ const projects = [
 ];
 
 const Projects = () => {
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<typeof projects[0] | undefined>(undefined);
+
+  const handleNewProject = () => {
+    setEditingProject(undefined);
+    setIsEditorOpen(true);
+  };
+
+  const handleEditProject = (project: typeof projects[0]) => {
+    setEditingProject(project);
+    setIsEditorOpen(true);
+  };
+
+  const handleDeleteProject = (title: string) => {
+    console.log("Delete project:", title);
+  };
+
   return (
     <DashboardLayout
       title="Projects"
@@ -65,7 +84,10 @@ const Projects = () => {
           <Filter className="w-4 h-4" />
           Filter
         </Button>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button 
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={handleNewProject}
+        >
           <Plus className="w-4 h-4" />
           New Project
         </Button>
@@ -79,9 +101,22 @@ const Projects = () => {
         className="grid grid-cols-1 lg:grid-cols-2 gap-6"
       >
         {projects.map((project, index) => (
-          <ProjectCard key={project.title} {...project} delay={index * 0.1} />
+          <ProjectCard 
+            key={project.title} 
+            {...project} 
+            delay={index * 0.1}
+            onEdit={() => handleEditProject(project)}
+            onDelete={() => handleDeleteProject(project.title)}
+          />
         ))}
       </motion.div>
+
+      {/* Project Editor Modal */}
+      <ProjectEditor
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        project={editingProject}
+      />
     </DashboardLayout>
   );
 };
