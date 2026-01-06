@@ -1,5 +1,12 @@
 import { motion } from "framer-motion";
-import { GitBranch, ExternalLink, MoreVertical } from "lucide-react";
+import { GitBranch, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical } from "lucide-react";
 
 interface ProjectCardProps {
   title: string;
@@ -10,6 +17,8 @@ interface ProjectCardProps {
   hasRepo?: boolean;
   hasDemo?: boolean;
   delay?: number;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const ProjectCard = ({
@@ -21,6 +30,8 @@ const ProjectCard = ({
   hasRepo = true,
   hasDemo = false,
   delay = 0,
+  onEdit,
+  onDelete,
 }: ProjectCardProps) => {
   const statusStyles = {
     "In Progress": "bg-primary/20 text-primary",
@@ -40,14 +51,31 @@ const ProjectCard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       whileHover={{ y: -4 }}
-      className="bg-card border border-border rounded-xl p-5 card-glow"
+      className="bg-card border border-border rounded-xl p-5 card-glow group"
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-        <button className="p-1 hover:bg-secondary rounded-md transition-colors">
-          <MoreVertical className="w-4 h-4 text-muted-foreground" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-1 hover:bg-secondary rounded-md transition-colors opacity-0 group-hover:opacity-100">
+              <MoreVertical className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-32">
+            <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onDelete}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Status Badge */}
