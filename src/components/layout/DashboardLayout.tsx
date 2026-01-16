@@ -1,12 +1,20 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, User } from "lucide-react";
+import { Menu, User, Search, Bell, Settings, LogIn, X } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -16,6 +24,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebar();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,14 +69,62 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
                   <h1 className="text-lg font-semibold text-foreground">{title}</h1>
                 </div>
               </div>
-              <Link
-                to="/login"
-                className="p-2 rounded-lg hover:bg-secondary transition-colors"
-              >
-                <User className="w-5 h-5 text-muted-foreground" />
-              </Link>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                    <User className="w-5 h-5 text-muted-foreground" />
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setMobileSearchOpen(true)}>
+                    <Search className="w-4 h-4 mr-2" />
+                    Search
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Bell className="w-4 h-4 mr-2" />
+                    Notifications
+                    <span className="ml-auto w-2 h-2 bg-primary rounded-full" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/login" className="flex items-center">
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Login
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
+          
+          {/* Mobile Search Overlay */}
+          {mobileSearchOpen && (
+            <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    className="pl-10 bg-secondary border-border"
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileSearchOpen(false)}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <motion.main
