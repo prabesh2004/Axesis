@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu } from "lucide-react";
+import { Menu, User } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 interface DashboardLayoutProps {
@@ -31,15 +32,13 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
       </Sheet>
 
       {/* Main Content */}
-      <motion.div
-        initial={false}
-        animate={{ marginLeft: 0 }}
-        className="md:transition-[margin] md:duration-300 md:ease-in-out"
+      <div
+        className="transition-[margin] duration-300 ease-in-out"
         style={{ marginLeft: 0 }}
       >
         <div 
-          className="hidden md:block"
-          style={{ marginLeft: collapsed ? 72 : 240, transition: "margin 0.3s ease-in-out" }}
+          className="hidden md:block md:transition-[margin-left] md:duration-300 md:ease-in-out"
+          style={{ marginLeft: collapsed ? 72 : 240 }}
         >
           <Header title={title} subtitle={subtitle} />
         </div>
@@ -61,6 +60,12 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
                   <h1 className="text-lg font-semibold text-foreground">{title}</h1>
                 </div>
               </div>
+              <Link
+                to="/login"
+                className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              >
+                <User className="w-5 h-5 text-muted-foreground" />
+              </Link>
             </div>
           </header>
         </div>
@@ -69,24 +74,19 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="p-4 md:p-6"
-          style={{ marginLeft: 0 }}
+          className="p-4 md:p-6 md:transition-[margin-left] md:duration-300 md:ease-in-out"
+          style={{ marginLeft: collapsed ? 72 : 240 }}
         >
-          <div 
-            className="hidden md:contents"
-            style={{ marginLeft: collapsed ? 72 : 240 }}
-          />
+          <div className="md:hidden" style={{ marginLeft: 0 }} />
           {children}
         </motion.main>
-      </motion.div>
+      </div>
 
-      {/* Desktop margin wrapper */}
+      {/* Mobile main content fix */}
       <style>{`
-        @media (min-width: 768px) {
-          .md\\:transition-\\[margin\\] > header,
-          .md\\:transition-\\[margin\\] > main {
-            margin-left: ${collapsed ? 72 : 240}px;
-            transition: margin 0.3s ease-in-out;
+        @media (max-width: 767px) {
+          main {
+            margin-left: 0 !important;
           }
         }
       `}</style>

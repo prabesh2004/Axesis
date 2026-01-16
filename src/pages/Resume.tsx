@@ -26,22 +26,24 @@ const Resume = () => {
           transition={{ duration: 0.4 }}
           className="lg:col-span-2 bg-card border border-border rounded-xl p-6"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h2 className="text-lg font-semibold text-foreground">
               Resume Preview
             </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Eye className="w-4 h-4" />
-                Preview
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Edit className="w-4 h-4" />
-                Edit
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none">
+                  <Eye className="w-4 h-4" />
+                  Preview
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none">
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </Button>
+              </div>
               <Button
                 size="sm"
-                className="gap-2 bg-primary text-primary-foreground"
+                className="gap-2 bg-primary text-primary-foreground w-full sm:w-auto"
               >
                 <Download className="w-4 h-4" />
                 Download
