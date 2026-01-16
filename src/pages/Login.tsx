@@ -3,11 +3,29 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { Atom, Mail, Lock, Eye, EyeOff, X } from "lucide-react";
+import { setStoredToken, useLoginMutation } from "@/hooks/api/useAuth";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const loginMutation = useLoginMutation();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await loginMutation.mutateAsync({ email, password });
+      setStoredToken(result.token);
+      toast.success("Signed in");
+      navigate("/");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign in failed";
+      toast.error(message);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative">
@@ -76,7 +94,7 @@ const Login = () => {
             </div>
           </div>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">
                 Email
@@ -86,6 +104,8 @@ const Login = () => {
                 <Input
                   type="email"
                   placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
@@ -100,6 +120,8 @@ const Login = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 bg-secondary border-border"
                 />
                 <button
@@ -129,7 +151,11 @@ const Login = () => {
               </a>
             </div>
 
-            <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11">
+            <Button
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
+              disabled={loginMutation.isPending}
+              type="submit"
+            >
               Sign In
             </Button>
           </form>

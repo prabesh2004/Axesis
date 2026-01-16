@@ -12,6 +12,7 @@ import AIInsights from "./pages/AIInsights";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import RequireAuth from "@/components/auth/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -22,11 +23,46 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/resume" element={<Resume />} />
-          <Route path="/ai-insights" element={<AIInsights />} />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <Index />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/notes"
+            element={
+              <RequireAuth>
+                <Notes />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <RequireAuth>
+                <Projects />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/resume"
+            element={
+              <RequireAuth>
+                <Resume />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/ai-insights"
+            element={
+              <RequireAuth>
+                <AIInsights />
+              </RequireAuth>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />
@@ -37,3 +73,4 @@ const App = () => (
 );
 
 export default App;
+

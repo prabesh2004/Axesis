@@ -1,26 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { X, Save, Trash2, Plus } from "lucide-react";
+import type { Note } from "@/types/models";
 
 interface NoteEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  note?: {
-    title: string;
-    content: string;
-    tags: string[];
-  };
+  note?: Note;
+  onSave?: (input: { id?: string; title: string; content: string; tags: string[] }) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
 }
 
-const NoteEditor = ({ isOpen, onClose, note }: NoteEditorProps) => {
-  const [title, setTitle] = useState(note?.title || "");
-  const [content, setContent] = useState(note?.content || "");
-  const [tags, setTags] = useState<string[]>(note?.tags || []);
+const NoteEditor = ({ isOpen, onClose, note, onSave, onDelete }: NoteEditorProps) => {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle(note?.title ?? "");
+    setContent(note?.content ?? "");
+    setTags(note?.tags ?? []);
+    setNewTag("");
+  }, [note, isOpen]);
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -40,15 +47,24 @@ const NoteEditor = ({ isOpen, onClose, note }: NoteEditorProps) => {
     }
   };
 
-  const handleSave = () => {
-    // Save logic would go here
-    console.log({ title, content, tags });
-    onClose();
+  const handleSave = async () => {
+    try {
+      await onSave?.({ id: note?.id, title, content, tags });
+      onClose();
+    } catch {
+      // Keep editor open on failure.
+    }
   };
 
-  const handleDelete = () => {
-    // Delete logic would go here
-    onClose();
+  const handleDelete = async () => {
+    try {
+      if (note?.id) {
+        await onDelete?.(note.id);
+        onClose();
+      }
+    } catch {
+      // Keep editor open on failure.
+    }
   };
 
   return (

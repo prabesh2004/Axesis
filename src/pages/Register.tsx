@@ -1,12 +1,32 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { Atom, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import { setStoredToken, useRegisterMutation } from "@/hooks/api/useAuth";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const registerMutation = useRegisterMutation();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await registerMutation.mutateAsync({ name, email, password });
+      setStoredToken(result.token);
+      toast.success("Account created");
+      navigate("/");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      toast.error(message);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -29,7 +49,7 @@ const Register = () => {
 
         {/* Form */}
         <div className="bg-card border border-border rounded-2xl p-6">
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">
                 Full Name
@@ -39,6 +59,8 @@ const Register = () => {
                 <Input
                   type="text"
                   placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
@@ -53,6 +75,8 @@ const Register = () => {
                 <Input
                   type="email"
                   placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
@@ -67,6 +91,8 @@ const Register = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 bg-secondary border-border"
                 />
                 <button
@@ -103,7 +129,11 @@ const Register = () => {
               </span>
             </div>
 
-            <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={registerMutation.isPending}
+              type="submit"
+            >
               Create Account
             </Button>
           </form>

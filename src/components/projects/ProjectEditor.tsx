@@ -5,24 +5,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import type { Project, ProjectStatus } from "@/types/models";
 
 interface ProjectEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  project?: {
+  project?: Project;
+  onSave?: (input: {
+    id?: string;
     title: string;
     description: string;
-    status: "In Progress" | "Completed" | "Planning";
+    status: ProjectStatus;
     technologies: string[];
     repoUrl?: string;
     demoUrl?: string;
-  };
+  }) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
 }
 
-const ProjectEditor = ({ isOpen, onClose, project }: ProjectEditorProps) => {
+const ProjectEditor = ({ isOpen, onClose, project, onSave, onDelete }: ProjectEditorProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<"In Progress" | "Completed" | "Planning">("Planning");
+  const [status, setStatus] = useState<ProjectStatus>("Planning");
   const [technologies, setTechnologies] = useState<string[]>([]);
   const [newTech, setNewTech] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -64,14 +68,32 @@ const ProjectEditor = ({ isOpen, onClose, project }: ProjectEditorProps) => {
     }
   };
 
-  const handleSave = () => {
-    console.log("Saving project:", { title, description, status, technologies, repoUrl, demoUrl });
-    onClose();
+  const handleSave = async () => {
+    try {
+      await onSave?.({
+        id: project?.id,
+        title,
+        description,
+        status,
+        technologies,
+        repoUrl: repoUrl || undefined,
+        demoUrl: demoUrl || undefined,
+      });
+      onClose();
+    } catch {
+      // Keep editor open on failure.
+    }
   };
 
-  const handleDelete = () => {
-    console.log("Deleting project");
-    onClose();
+  const handleDelete = async () => {
+    try {
+      if (project?.id) {
+        await onDelete?.(project.id);
+        onClose();
+      }
+    } catch {
+      // Keep editor open on failure.
+    }
   };
 
   const statusOptions: Array<"Planning" | "In Progress" | "Completed"> = ["Planning", "In Progress", "Completed"];

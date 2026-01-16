@@ -1,0 +1,16 @@
+# Env (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Dependencies / build output
+node_modules/
+dist/
+coverage/
+
+# Logs / temp
+logs/
+*.log
+*.tmp
+*.bak
+*.swp

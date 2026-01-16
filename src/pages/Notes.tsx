@@ -1,65 +1,82 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import NoteCard from "@/components/cards/NoteCard";
 import NoteEditor from "@/components/notes/NoteEditor";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { Search, Filter, Plus } from "lucide-react";
+import type { Note, NoteAccentColor } from "@/types/models";
+import {
+  useCreateNoteMutation,
+  useDeleteNoteMutation,
+  useNotesQuery,
+  useUpdateNoteMutation,
+} from "@/hooks/api/useNotes";
 
-const notes = [
-  {
-    title: "React Hooks Deep Dive",
-    description:
-      "Understanding useState, useEffect, useCallback, and useMemo for optimal performance...",
-    tags: ["React", "Performance"],
-    date: "Jan 3, 2024",
-    accentColor: "cyan" as const,
-  },
-  {
-    title: "MongoDB Aggregation Pipeline",
-    description:
-      "Notes on $match, $group, $project, and other aggregation operators...",
-    tags: ["MongoDB", "Database"],
-    date: "Jan 2, 2024",
-    accentColor: "purple" as const,
-  },
-  {
-    title: "System Design Patterns",
-    description:
-      "Key patterns for building scalable systems: load balancing, caching, sharding...",
-    tags: ["System Design", "Architecture"],
-    date: "Dec 28, 2023",
-    accentColor: "cyan" as const,
-  },
-  {
-    title: "TypeScript Best Practices",
-    description:
-      "Type inference, generics, utility types, and advanced patterns...",
-    tags: ["TypeScript", "Best Practices"],
-    date: "Dec 25, 2023",
-    accentColor: "purple" as const,
-  },
-  {
-    title: "AWS Lambda Functions",
-    description:
-      "Serverless architecture, cold starts, and optimization strategies...",
-    tags: ["AWS", "Serverless"],
-    date: "Dec 20, 2023",
-    accentColor: "cyan" as const,
-  },
-  {
-    title: "GraphQL vs REST",
-    description:
-      "Comparing API architectures, when to use each, and migration strategies...",
-    tags: ["API", "GraphQL"],
-    date: "Dec 18, 2023",
-    accentColor: "purple" as const,
-  },
-];
+function formatNoteDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function noteDescription(content: string): string {
+  const firstLine = content.split("\n").find((l) => l.trim().length > 0) ?? "";
+  return firstLine.length > 0 ? firstLine : "(No content)";
+}
+
+function pickAccentColor(id: string): NoteAccentColor {
+  const colors: NoteAccentColor[] = ["cyan", "purple"];
+  let acc = 0;
+  for (let i = 0; i < id.length; i++) acc = (acc + id.charCodeAt(i)) % 997;
+  return colors[acc % colors.length];
+}
 
 const Notes = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | undefined>(undefined);
+
+  const notesQuery = useNotesQuery();
+  const createNote = useCreateNoteMutation();
+  const updateNote = useUpdateNoteMutation();
+  const deleteNote = useDeleteNoteMutation();
+
+  const notes = useMemo(() => notesQuery.data ?? [], [notesQuery.data]);
+
+  const handleNewNote = () => {
+    setEditingNote(undefined);
+    setIsEditorOpen(true);
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNote(note);
+    setIsEditorOpen(true);
+  };
+
+  const handleSave = async (input: { id?: string; title: string; content: string; tags: string[] }) => {
+    try {
+      if (input.id) {
+        await updateNote.mutateAsync({ id: input.id, patch: { title: input.title, content: input.content, tags: input.tags } });
+        toast.success("Note updated");
+      } else {
+        await createNote.mutateAsync({ title: input.title, content: input.content, tags: input.tags });
+        toast.success("Note created");
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to save note";
+      toast.error(message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteNote.mutateAsync(id);
+      toast.success("Note deleted");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to delete note";
+      toast.error(message);
+    }
+  };
 
   return (
     <DashboardLayout
@@ -81,7 +98,7 @@ const Notes = () => {
         </Button>
         <Button
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => setIsEditorOpen(true)}
+          onClick={handleNewNote}
         >
           <Plus className="w-4 h-4" />
           New Note
@@ -96,12 +113,28 @@ const Notes = () => {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         {notes.map((note, index) => (
-          <NoteCard key={note.title} {...note} delay={index * 0.1} />
+          <NoteCard
+            key={note.id}
+            title={note.title}
+            description={noteDescription(note.content)}
+            tags={note.tags}
+            date={formatNoteDate(note.updatedAt)}
+            accentColor={pickAccentColor(note.id)}
+            delay={index * 0.1}
+            onEdit={() => handleEditNote(note)}
+            onDelete={() => void handleDelete(note.id)}
+          />
         ))}
       </motion.div>
 
       {/* Note Editor Modal */}
-      <NoteEditor isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} />
+      <NoteEditor
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        note={editingNote}
+        onSave={handleSave}
+        onDelete={handleDelete}
+      />
     </DashboardLayout>
   );
 };
