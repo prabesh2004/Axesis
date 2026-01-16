@@ -84,7 +84,7 @@ const Notes = () => {
       subtitle="Organize your knowledge and learning materials."
     >
       {/* Search and Actions */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -92,17 +92,19 @@ const Notes = () => {
             className="pl-10 bg-secondary border-border"
           />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Filter
-        </Button>
-        <Button
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={handleNewNote}
-        >
-          <Plus className="w-4 h-4" />
-          New Note
-        </Button>
+        <div className="flex gap-2 sm:gap-4">
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none">
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">Filter</span>
+          </Button>
+          <Button
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 sm:flex-none"
+            onClick={handleNewNote}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New Note</span>
+          </Button>
+        </div>
       </div>
 
       {/* Notes Grid */}

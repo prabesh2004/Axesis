@@ -20,9 +20,9 @@ const Header = ({ title, subtitle }: HeaderProps) => {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="relative">
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Search - Hidden on mobile */}
+          <div className="relative hidden lg:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search..."

@@ -21,17 +21,19 @@ const navItems = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
 }
 
-const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+const Sidebar = ({ collapsed, onToggle, isMobile = false }: SidebarProps) => {
   const location = useLocation();
+  const effectiveCollapsed = isMobile ? false : collapsed;
 
   return (
     <motion.aside
-      initial={{ width: 240 }}
-      animate={{ width: collapsed ? 72 : 240 }}
+      initial={{ width: isMobile ? 240 : 240 }}
+      animate={{ width: isMobile ? 240 : (effectiveCollapsed ? 72 : 240) }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
+      className={`${isMobile ? 'relative' : 'fixed left-0 top-0'} h-screen bg-sidebar border-r border-sidebar-border z-50 flex flex-col`}
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
@@ -40,7 +42,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
             <Atom className="w-5 h-5 text-primary" />
           </div>
           <AnimatePresence>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <motion.span
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: "auto" }}
@@ -75,7 +77,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                     }`}
                   />
                   <AnimatePresence>
-                    {!collapsed && (
+                    {!effectiveCollapsed && (
                       <motion.span
                         initial={{ opacity: 0, width: 0 }}
                         animate={{ opacity: 1, width: "auto" }}
@@ -93,32 +95,34 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
         </ul>
       </nav>
 
-      {/* Collapse Button */}
-      <div className="p-3 border-t border-sidebar-border">
-        <button
-          onClick={onToggle}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-200"
-        >
-          <motion.div
-            animate={{ rotate: collapsed ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
+      {/* Collapse Button - Hide on mobile */}
+      {!isMobile && (
+        <div className="p-3 border-t border-sidebar-border">
+          <button
+            onClick={onToggle}
+            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-200"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </motion.div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={{ opacity: 0, width: 0 }}
-                className="text-sm font-medium overflow-hidden whitespace-nowrap"
-              >
-                Collapse
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
-      </div>
+            <motion.div
+              animate={{ rotate: effectiveCollapsed ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </motion.div>
+            <AnimatePresence>
+              {!effectiveCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="text-sm font-medium overflow-hidden whitespace-nowrap"
+                >
+                  Collapse
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+      )}
     </motion.aside>
   );
 };
