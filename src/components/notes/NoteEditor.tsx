@@ -79,28 +79,11 @@ const NoteEditor = ({ isOpen, onClose, note, onSave, onDelete }: NoteEditorProps
         >
           <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-              <h2 className="text-xl font-semibold text-foreground">
-                {note ? "Edit Note" : "New Note"}
-              </h2>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save
-                </Button>
+            <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 border-b border-border bg-card">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {note ? "Edit Note" : "New Note"}
+                </h2>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -108,6 +91,25 @@ const NoteEditor = ({ isOpen, onClose, note, onSave, onDelete }: NoteEditorProps
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 sm:flex-none"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-1 sm:flex-none"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
                 </Button>
               </div>
             </div>
