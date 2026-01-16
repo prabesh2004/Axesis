@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -10,9 +10,21 @@ interface SidebarContextType {
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
+const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+
 export const SidebarProvider = ({ children }: { children: ReactNode }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  // Initialize from localStorage to persist state
+  const [collapsed, setCollapsedState] = useState(() => {
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return stored === "true";
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Persist collapsed state to localStorage
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value);
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(value));
+  };
 
   const toggle = () => setCollapsed(!collapsed);
 

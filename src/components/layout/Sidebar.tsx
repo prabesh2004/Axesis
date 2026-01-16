@@ -29,11 +29,9 @@ const Sidebar = ({ collapsed, onToggle, isMobile = false }: SidebarProps) => {
   const effectiveCollapsed = isMobile ? false : collapsed;
 
   return (
-    <motion.aside
-      initial={{ width: isMobile ? 240 : 240 }}
-      animate={{ width: isMobile ? 240 : (effectiveCollapsed ? 72 : 240) }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-      className={`${isMobile ? 'relative' : 'fixed left-0 top-0'} h-screen bg-sidebar border-r border-sidebar-border z-50 flex flex-col`}
+    <aside
+      style={{ width: isMobile ? 240 : (effectiveCollapsed ? 72 : 240) }}
+      className={`${isMobile ? 'relative' : 'fixed left-0 top-0'} h-screen bg-sidebar border-r border-sidebar-border z-50 flex flex-col transition-[width] duration-300 ease-in-out`}
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
@@ -121,7 +119,7 @@ const Sidebar = ({ collapsed, onToggle, isMobile = false }: SidebarProps) => {
           </AnimatePresence>
         </button>
       </div>
-    </motion.aside>
+    </aside>
   );
 };
 
