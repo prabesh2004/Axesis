@@ -95,34 +95,32 @@ const Sidebar = ({ collapsed, onToggle, isMobile = false }: SidebarProps) => {
         </ul>
       </nav>
 
-      {/* Collapse Button - Hide on mobile */}
-      {!isMobile && (
-        <div className="p-3 border-t border-sidebar-border">
-          <button
-            onClick={onToggle}
-            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-200"
+      {/* Collapse/Close Button */}
+      <div className="p-3 border-t border-sidebar-border">
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-200"
+        >
+          <motion.div
+            animate={{ rotate: isMobile ? 0 : (effectiveCollapsed ? 180 : 0) }}
+            transition={{ duration: 0.3 }}
           >
-            <motion.div
-              animate={{ rotate: effectiveCollapsed ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </motion.div>
-            <AnimatePresence>
-              {!effectiveCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="text-sm font-medium overflow-hidden whitespace-nowrap"
-                >
-                  Collapse
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
-      )}
+            <ChevronLeft className="w-5 h-5" />
+          </motion.div>
+          <AnimatePresence>
+            {!effectiveCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                className="text-sm font-medium overflow-hidden whitespace-nowrap"
+              >
+                {isMobile ? "Close" : "Collapse"}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
     </motion.aside>
   );
 };
