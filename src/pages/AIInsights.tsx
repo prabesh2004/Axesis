@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Sparkles,
   TrendingUp,
@@ -11,41 +12,192 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const insights = [
-  {
-    icon: Target,
-    title: "Skill Gap Analysis",
-    description:
-      "Based on your career goals, you should focus on System Design and Cloud Architecture. These are commonly required for senior positions.",
-    action: "View detailed analysis",
-    type: "recommendation",
-  },
-  {
-    icon: TrendingUp,
-    title: "Career Path Suggestion",
-    description:
-      "Your current trajectory aligns well with Full Stack Developer roles. Consider specializing in either frontend or backend for faster advancement.",
-    action: "Explore career paths",
-    type: "insight",
-  },
-  {
-    icon: BookOpen,
-    title: "Learning Recommendation",
-    description:
-      "Complete the AWS Solutions Architect certification to strengthen your cloud skills. This complements your existing Node.js expertise.",
-    action: "Start learning path",
-    type: "recommendation",
-  },
-];
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getAiInsights, getLatestAiInsights } from "@/services/ai";
+import { getGoals } from "@/services/goals";
+import { listNotes } from "@/services/notes";
+import { listProjects } from "@/services/projects";
+import { getLatestResume } from "@/services/resume";
+import type { AiInsightsResponse, AiInsightItem, AiQuickStat, GoalProfile } from "@/types/models";
 
-const quickStats = [
-  { label: "Skills Analyzed", value: 24 },
-  { label: "Recommendations", value: 12 },
-  { label: "Insights Generated", value: 47 },
-  { label: "Goals Tracked", value: 5 },
-];
+function iconForKind(kind: AiInsightItem["kind"]) {
+  switch (kind) {
+    case "skill_gap":
+      return Target;
+    case "career_path":
+      return TrendingUp;
+    case "learning":
+      return BookOpen;
+    default:
+      return Sparkles;
+  }
+}
 
 const AIInsights = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [insights, setInsights] = useState<AiInsightItem[]>([]);
+  const [quickStats, setQuickStats] = useState<AiQuickStat[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [goals, setGoals] = useState<GoalProfile | null>(null);
+  const [details, setDetails] = useState<AiInsightsResponse | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsRef = useRef<HTMLDivElement | null>(null);
+
+  const CACHE_KEY = "aiInsights.cache.v1";
+  const GOALS_CACHE_KEY = "aiInsights.goals.v1";
+
+  const applyInsightsResult = useCallback((result: AiInsightsResponse) => {
+    setDetails(result);
+    setInsights(result.insights ?? []);
+    setQuickStats(result.quickStats ?? []);
+    setLastUpdated(result.generatedAt ?? null);
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(result));
+  }, []);
+
+  const hydrateFromCache = useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as AiInsightsResponse;
+      if (!parsed || typeof parsed !== "object") return;
+
+      applyInsightsResult(parsed);
+    } catch {
+      // ignore cache failures
+    }
+  }, [applyInsightsResult]);
+
+  const loadLatestPersisted = useCallback(async () => {
+    try {
+      const latest = await getLatestAiInsights();
+      if (!latest) return;
+
+      const cachedRaw = sessionStorage.getItem(CACHE_KEY);
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw) as AiInsightsResponse;
+          const cachedTime = cached?.generatedAt ? new Date(cached.generatedAt).getTime() : 0;
+          const latestTime = latest?.generatedAt ? new Date(latest.generatedAt).getTime() : 0;
+          if (latestTime && cachedTime && latestTime <= cachedTime) return;
+        } catch {
+          // ignore
+        }
+      }
+
+      applyInsightsResult(latest);
+    } catch {
+      // ignore
+    }
+  }, [applyInsightsResult]);
+
+  const hydrateGoalsFromCache = useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(GOALS_CACHE_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw) as GoalProfile;
+      if (!parsed || typeof parsed !== "object") return false;
+      setGoals(parsed);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const loadGoals = useCallback(async () => {
+    try {
+      const g = await getGoals();
+      setGoals(g);
+      sessionStorage.setItem(GOALS_CACHE_KEY, JSON.stringify(g));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadInsights = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [resume, goals, notes, projects] = await Promise.all([
+        getLatestResume(),
+        getGoals(),
+        listNotes(),
+        listProjects(),
+      ]);
+
+      setGoals(goals);
+      sessionStorage.setItem(GOALS_CACHE_KEY, JSON.stringify(goals));
+
+      if (!resume.text?.trim()) {
+        throw new Error("Upload your resume first (Resume page) to generate insights.");
+      }
+
+      const notesText = notes
+        .map((n) => `Title: ${n.title}\nTags: ${(n.tags ?? []).join(", ") || "(none)"}\n${n.content}`)
+        .join("\n\n---\n\n");
+
+      const projectsText = projects
+        .map(
+          (p) =>
+            `Title: ${p.title}\nStatus: ${p.status}\nTech: ${(p.technologies ?? []).join(", ") || "(none)"}\n${p.description}`,
+        )
+        .join("\n\n---\n\n");
+
+      const result = await getAiInsights({
+        resumeText: resume.text,
+        notes: notesText,
+        projects: projectsText,
+        goals: { targetRoles: goals.targetRoles, interests: goals.interests },
+      });
+
+      applyInsightsResult(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load insights");
+    } finally {
+      setLoading(false);
+    }
+  }, [applyInsightsResult]);
+
+  const ensureDetailsThenOpen = useCallback(
+    async () => {
+      if (!details) {
+        await loadInsights();
+      }
+      setDetailsOpen(true);
+      // allow layout to update before scroll
+      setTimeout(() => {
+        detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    },
+    [details, loadInsights],
+  );
+
+  useEffect(() => {
+    hydrateFromCache();
+    const hadGoals = hydrateGoalsFromCache();
+    if (!hadGoals) {
+      void loadGoals();
+    }
+
+    // Prefer the server-persisted insights if they exist.
+    void loadLatestPersisted();
+  }, [hydrateFromCache, hydrateGoalsFromCache, loadGoals, loadLatestPersisted]);
+
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return "Not generated yet";
+    const date = new Date(lastUpdated);
+    if (Number.isNaN(date.getTime())) return lastUpdated;
+    return date.toLocaleString();
+  }, [lastUpdated]);
+
+  const hasGoals = useMemo(() => {
+    const roles = goals?.targetRoles?.filter(Boolean) ?? [];
+    const interests = goals?.interests?.filter(Boolean) ?? [];
+    return roles.length > 0 || interests.length > 0;
+  }, [goals]);
+
   return (
     <DashboardLayout
       title="AI Insights"
@@ -62,15 +214,60 @@ const AIInsights = () => {
               Personalized Insights
             </h2>
             <p className="text-sm text-muted-foreground">
-              Last updated: 2 hours ago
+              Last updated: {formattedLastUpdated}
             </p>
           </div>
         </div>
-        <Button variant="outline" className="gap-2 w-full sm:w-auto">
+        <Button
+          variant="outline"
+          className="gap-2 w-full sm:w-auto"
+          onClick={loadInsights}
+          disabled={loading}
+        >
           <RefreshCw className="w-4 h-4" />
-          Refresh Insights
+          {loading ? "Refreshing..." : "Refresh Insights"}
         </Button>
       </div>
+
+      {error ? (
+        <div className="mb-6 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-4 text-sm">
+          {error}
+        </div>
+      ) : null}
+
+      {!hasGoals ? (
+        <div className="mb-6 bg-secondary border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Add Goals for accurate skill-gap analysis</p>
+            <p className="text-xs text-muted-foreground">
+              Set your target roles and interests so insights are tailored to your career direction.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/resume")}>
+              Add goals
+            </Button>
+            <Button onClick={loadInsights} disabled={loading}>
+              {loading ? "Refreshing..." : "Import & refresh"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 bg-card border border-border rounded-xl p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Goals used for analysis</p>
+          <div className="flex flex-wrap gap-2">
+            {(goals?.targetRoles ?? []).map((role) => (
+              <Badge key={`role-${role}`} variant="secondary">{role}</Badge>
+            ))}
+            {(goals?.interests ?? []).map((interest) => (
+              <Badge key={`interest-${interest}`} variant="outline">{interest}</Badge>
+            ))}
+            <Button variant="ghost" className="h-7 px-2" onClick={() => navigate("/resume")}>
+              Edit
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <motion.div
@@ -79,7 +276,15 @@ const AIInsights = () => {
         transition={{ duration: 0.4 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
       >
-        {quickStats.map((stat, index) => (
+        {(quickStats.length
+          ? quickStats
+          : [
+              { label: "Skills Analyzed", value: 0 },
+              { label: "Recommendations", value: 0 },
+              { label: "Insights Generated", value: 0 },
+              { label: "Goals Tracked", value: 0 },
+            ])
+          .map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
@@ -95,7 +300,20 @@ const AIInsights = () => {
 
       {/* Insights Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {insights.map((insight, index) => (
+        {(insights.length
+          ? insights
+          : [
+              {
+                kind: "skill_gap" as const,
+                title: "Generate insights to see results",
+                description: "Click Refresh Insights to generate personalized recommendations.",
+                action: "Refresh now",
+                type: "insight" as const,
+              },
+            ])
+          .map((insight, index) => {
+            const Icon = iconForKind(insight.kind);
+            return (
           <motion.div
             key={insight.title}
             initial={{ opacity: 0, y: 20 }}
@@ -105,7 +323,7 @@ const AIInsights = () => {
           >
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
-                <insight.icon className="w-5 h-5 text-primary" />
+                <Icon className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-2">
@@ -114,14 +332,25 @@ const AIInsights = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   {insight.description}
                 </p>
-                <button className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors">
+                <button
+                  className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+                  onClick={() => {
+                    if (insight.action.toLowerCase().includes("refresh")) {
+                      void loadInsights();
+                      return;
+                    }
+                    void ensureDetailsThenOpen();
+                  }}
+                  type="button"
+                >
                   {insight.action}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           </motion.div>
-        ))}
+            );
+          })}
       </div>
 
       {/* AI Chat Preview */}
@@ -157,6 +386,150 @@ const AIInsights = () => {
           </Button>
         </div>
       </motion.div>
+
+      {/* Detailed sections (only shown on click) */}
+      {detailsOpen && details ? (
+        <div ref={detailsRef} className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.65 }}
+            className="bg-card border border-border rounded-xl p-6"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Detailed Skill Gap Analysis</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Target roles</p>
+                <div className="flex flex-wrap gap-2">
+                  {(details.skillGapAnalysis?.targetRoles ?? []).length ? (
+                    (details.skillGapAnalysis?.targetRoles ?? []).map((r) => (
+                      <Badge key={r} variant="secondary">{r}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No target roles set — add Goals for a tighter analysis.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Strengths</p>
+                <div className="flex flex-wrap gap-2">
+                  {(details.skillGapAnalysis?.strengths ?? []).length ? (
+                    (details.skillGapAnalysis?.strengths ?? []).map((s) => (
+                      <Badge key={s} variant="outline">{s}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No strengths extracted.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Gaps (prioritized)</p>
+                {(details.skillGapAnalysis?.gaps ?? []).length ? (
+                  <div className="space-y-3">
+                    {details.skillGapAnalysis.gaps.map((gap, idx) => (
+                      <div key={`${gap.skill}-${idx}`} className="bg-secondary rounded-lg p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-foreground">{gap.skill}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{gap.reason}</p>
+                            {gap.evidence ? (
+                              <p className="text-xs text-muted-foreground mt-2">Evidence: {gap.evidence}</p>
+                            ) : null}
+                          </div>
+                          <Badge
+                            variant={gap.priority === "high" ? "destructive" : gap.priority === "medium" ? "secondary" : "outline"}
+                          >
+                            {gap.priority}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No gaps generated yet. Click Refresh Insights.</span>
+                )}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Learning Recommendations */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.75 }}
+            className="bg-card border border-border rounded-xl p-6"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Learning Recommendations</h3>
+            </div>
+            {(details.learningRecommendations ?? []).length ? (
+              <div className="space-y-4">
+                {details.learningRecommendations.map((rec, idx) => (
+                  <div key={`${rec.title}-${idx}`} className="bg-secondary rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">{rec.title}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{rec.why}</p>
+                      </div>
+                      {rec.timeframeWeeks ? (
+                        <Badge variant="outline">{rec.timeframeWeeks} weeks</Badge>
+                      ) : null}
+                    </div>
+                    {(rec.steps ?? []).length ? (
+                      <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        {rec.steps.map((s, sIdx) => (
+                          <li key={`${idx}-step-${sIdx}`}>• {s}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">No learning recommendations yet.</span>
+            )}
+          </motion.div>
+
+          {/* Career Path Suggestions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.85 }}
+            className="bg-card border border-border rounded-xl p-6"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Career Path Suggestions</h3>
+            </div>
+            {(details.careerPathSuggestions ?? []).length ? (
+              <div className="space-y-4">
+                {details.careerPathSuggestions.map((path, idx) => (
+                  <div key={`${path.title}-${idx}`} className="bg-secondary rounded-lg p-4">
+                    <p className="font-medium text-foreground">{path.title}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{path.why}</p>
+                    {(path.nextSteps ?? []).length ? (
+                      <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        {path.nextSteps.map((s, sIdx) => (
+                          <li key={`${idx}-next-${sIdx}`}>• {s}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">No career paths yet.</span>
+            )}
+          </motion.div>
+        </div>
+      ) : null}
     </DashboardLayout>
   );
 };

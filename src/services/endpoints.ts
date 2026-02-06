@@ -15,8 +15,18 @@ export const endpoints = {
     update: (id: string) => `/projects/${id}`,
     delete: (id: string) => `/projects/${id}`,
   },
+  goals: {
+    get: "/goals",
+    update: "/goals",
+  },
+  resume: {
+    upload: "/resume/upload",
+    latest: "/resume/latest",
+  },
   ai: {
     query: "/ai/query",
     analyzeResume: "/ai/analyze-resume",
+    insights: "/ai/insights",
+    insightsLatest: "/ai/insights/latest",
   },
 } as const;

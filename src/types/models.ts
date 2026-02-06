@@ -35,6 +35,75 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface GoalProfile {
+  id: string;
+  targetRoles: string[];
+  interests: string[];
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
+export interface ResumeEntry {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  text: string;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
+export interface ResumeAnalysis {
+  score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  careerPaths: string[];
+  nextSteps: string[];
+  explanation: string;
+  raw?: string;
+}
+
+export type AiInsightKind = "skill_gap" | "career_path" | "learning";
+
+export interface AiInsightItem {
+  kind: AiInsightKind;
+  title: string;
+  description: string;
+  action: string;
+  type: "recommendation" | "insight";
+}
+
+export interface SkillGapItem {
+  skill: string;
+  priority: "high" | "medium" | "low";
+  reason: string;
+  evidence?: string;
+}
+
+export interface AiInsightsResponse {
+  generatedAt: string;
+  quickStats: AiQuickStat[];
+  insights: AiInsightItem[];
+  skillGapAnalysis: {
+    targetRoles: string[];
+    strengths: string[];
+    gaps: SkillGapItem[];
+  };
+  learningRecommendations: Array<{
+    title: string;
+    why: string;
+    steps: string[];
+    timeframeWeeks?: number;
+  }>;
+  careerPathSuggestions: Array<{
+    title: string;
+    why: string;
+    nextSteps: string[];
+  }>;
+  raw?: string;
+}
+
 export interface AiInsight {
   id: string;
   title: string;
