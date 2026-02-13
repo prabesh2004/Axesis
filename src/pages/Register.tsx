@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Atom, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { setStoredToken, useRegisterMutation } from "@/hooks/api/useAuth";
+import { clearUserSessionCaches } from "@/services/sessionCache";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,12 +16,15 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const registerMutation = useRegisterMutation();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const result = await registerMutation.mutateAsync({ name, email, password });
       setStoredToken(result.token);
+      clearUserSessionCaches();
+      queryClient.clear();
       toast.success("Account created");
       navigate("/");
     } catch (err) {

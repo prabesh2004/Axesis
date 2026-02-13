@@ -16,3 +16,9 @@ export function useLoginMutation() {
     mutationFn: authService.login,
   });
 }
+
+export function useGoogleLoginMutation() {
+  return useMutation({
+    mutationFn: authService.googleLogin,
+  });
+}

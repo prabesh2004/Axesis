@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project } from "@/types/models";
 import * as projectsService from "@/services/projects";
+import { getCurrentUserId } from "@/services/authIdentity";
 
 const keys = {
-  all: ["projects"] as const,
+  all: (userId: string | null) => ["projects", userId ?? "anon"] as const,
 };
 
 export function useProjectsQuery() {
+  const userId = getCurrentUserId();
   return useQuery({
-    queryKey: keys.all,
+    queryKey: keys.all(userId),
     queryFn: projectsService.listProjects,
   });
 }
@@ -18,7 +20,7 @@ export function useCreateProjectMutation() {
   return useMutation({
     mutationFn: (input: Omit<Project, "id" | "createdAt" | "updatedAt">) => projectsService.createProject(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }
@@ -29,7 +31,7 @@ export function useUpdateProjectMutation() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Omit<Project, "id" | "createdAt" | "updatedAt">> }) =>
       projectsService.updateProject(id, patch),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }
@@ -39,7 +41,7 @@ export function useDeleteProjectMutation() {
   return useMutation({
     mutationFn: (id: string) => projectsService.deleteProject(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }

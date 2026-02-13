@@ -48,6 +48,9 @@ export interface ResumeEntry {
   fileName: string;
   mimeType: string;
   text: string;
+  textHash?: string;
+  analysis?: ResumeAnalysis;
+  analyzedAt?: string; // ISO
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
@@ -115,4 +118,9 @@ export interface AiInsight {
 export interface AiQuickStat {
   label: string;
   value: number;
+}
+
+export interface SkillProgressResponse {
+  generatedAt: string; // ISO
+  skills: Array<{ skill: string; percentage: number }>;
 }

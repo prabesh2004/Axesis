@@ -10,3 +10,4 @@ aiRouter.post("/query", aiController.queryAi);
 aiRouter.post("/analyze-resume", aiController.analyzeResume);
 aiRouter.post("/insights", aiController.getInsights);
 aiRouter.get("/insights/latest", aiController.getLatestInsights);
+aiRouter.get("/skill-progress", aiController.getSkillProgress);

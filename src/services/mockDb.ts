@@ -1,5 +1,6 @@
 import type { AuthResponse, AuthUser, GoalProfile, Note, Project, ResumeAnalysis, ResumeEntry } from "@/types/models";
 import type { AiInsightsResponse } from "@/types/models";
+import type { SkillProgressResponse } from "@/types/models";
 import { generateId, readJson, writeJson } from "@/services/storage";
 
 const KEYS = {
@@ -99,6 +100,9 @@ function seedResume(): ResumeEntry {
     fileName: "resume.pdf",
     mimeType: "application/pdf",
     text: "Sample resume text for AI analysis.",
+    textHash: "mock",
+    analysis: undefined,
+    analyzedAt: undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -212,6 +216,9 @@ export const mockDb = {
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
       text: existing.text,
+      textHash: existing.textHash || "mock",
+      analysis: undefined,
+      analyzedAt: undefined,
       updatedAt: now,
     };
     writeJson(KEYS.resume, next);
@@ -298,6 +305,18 @@ export const mockDb = {
 
     writeJson(KEYS.aiInsights, next);
     return next;
+  },
+
+  getSkillProgress(): SkillProgressResponse {
+    return {
+      generatedAt: nowIso(),
+      skills: [
+        { skill: "Frontend Development (React/UI)", percentage: 82 },
+        { skill: "Backend Development (APIs)", percentage: 74 },
+        { skill: "Databases (Design & Queries)", percentage: 66 },
+        { skill: "System Design & Architecture", percentage: 48 },
+      ],
+    };
   },
 
   getLatestAiInsights(): AiInsightsResponse | null {

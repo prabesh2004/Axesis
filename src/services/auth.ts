@@ -25,3 +25,15 @@ export async function login(input: { email: string; password: string }): Promise
     body: input,
   });
 }
+
+export async function googleLogin(input: { credential: string }): Promise<AuthResponse> {
+  if (env.useMockApi) {
+    // Minimal mock behavior: treat it as a login.
+    return mockDb.login("mock@example.com", "password");
+  }
+
+  return requestJson<AuthResponse>(endpoints.auth.google, {
+    method: "POST",
+    body: input,
+  });
+}

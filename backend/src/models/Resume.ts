@@ -1,11 +1,26 @@
 import { Schema, model, type Types } from "mongoose";
 
+export interface ResumeAnalysisDoc {
+  score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  careerPaths: string[];
+  nextSteps: string[];
+  explanation: string;
+  raw?: string;
+}
+
 export interface ResumeDoc {
   _id: string;
   user: Types.ObjectId;
   fileName: string;
   mimeType: string;
   text: string;
+  textHash?: string;
+  analysis?: ResumeAnalysisDoc;
+  analyzedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,6 +31,12 @@ const resumeSchema = new Schema<ResumeDoc>(
     fileName: { type: String, required: true },
     mimeType: { type: String, required: true },
     text: { type: String, required: true },
+    textHash: { type: String, required: false, index: true },
+    analysis: {
+      type: Object,
+      required: false,
+    },
+    analyzedAt: { type: Date, required: false },
   },
   {
     timestamps: true,
@@ -27,6 +48,7 @@ const resumeSchema = new Schema<ResumeDoc>(
         delete (obj as Record<string, unknown>).__v;
         if (obj.createdAt) obj.createdAt = new Date(obj.createdAt as string).toISOString();
         if (obj.updatedAt) obj.updatedAt = new Date(obj.updatedAt as string).toISOString();
+        if (obj.analyzedAt) obj.analyzedAt = new Date(obj.analyzedAt as string).toISOString();
         return obj;
       },
     },

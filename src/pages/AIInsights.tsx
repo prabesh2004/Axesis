@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Sparkles,
   TrendingUp,
@@ -14,12 +15,13 @@ import {
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAiInsights, getLatestAiInsights } from "@/services/ai";
+import { askAiAssistant, getAiInsights, getLatestAiInsights } from "@/services/ai";
 import { getGoals } from "@/services/goals";
 import { listNotes } from "@/services/notes";
 import { listProjects } from "@/services/projects";
 import { getLatestResume } from "@/services/resume";
 import type { AiInsightsResponse, AiInsightItem, AiQuickStat, GoalProfile } from "@/types/models";
+import { getCurrentUserId } from "@/services/authIdentity";
 
 function iconForKind(kind: AiInsightItem["kind"]) {
   switch (kind) {
@@ -36,6 +38,7 @@ function iconForKind(kind: AiInsightItem["kind"]) {
 
 const AIInsights = () => {
   const navigate = useNavigate();
+  const userId = getCurrentUserId() ?? "anon";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<AiInsightItem[]>([]);
@@ -46,8 +49,14 @@ const AIInsights = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement | null>(null);
 
-  const CACHE_KEY = "aiInsights.cache.v1";
-  const GOALS_CACHE_KEY = "aiInsights.goals.v1";
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+
+  const CACHE_KEY = useMemo(() => `aiInsights.cache.v1.${userId}`, [userId]);
+  const GOALS_CACHE_KEY = useMemo(() => `aiInsights.goals.v1.${userId}`, [userId]);
 
   const applyInsightsResult = useCallback((result: AiInsightsResponse) => {
     setDetails(result);
@@ -55,7 +64,7 @@ const AIInsights = () => {
     setQuickStats(result.quickStats ?? []);
     setLastUpdated(result.generatedAt ?? null);
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(result));
-  }, []);
+  }, [CACHE_KEY]);
 
   const hydrateFromCache = useCallback(() => {
     try {
@@ -68,7 +77,7 @@ const AIInsights = () => {
     } catch {
       // ignore cache failures
     }
-  }, [applyInsightsResult]);
+  }, [applyInsightsResult, CACHE_KEY]);
 
   const loadLatestPersisted = useCallback(async () => {
     try {
@@ -91,7 +100,7 @@ const AIInsights = () => {
     } catch {
       // ignore
     }
-  }, [applyInsightsResult]);
+  }, [applyInsightsResult, CACHE_KEY]);
 
   const hydrateGoalsFromCache = useCallback(() => {
     try {
@@ -104,7 +113,7 @@ const AIInsights = () => {
     } catch {
       return false;
     }
-  }, []);
+  }, [GOALS_CACHE_KEY]);
 
   const loadGoals = useCallback(async () => {
     try {
@@ -114,7 +123,7 @@ const AIInsights = () => {
     } catch {
       // ignore
     }
-  }, []);
+  }, [GOALS_CACHE_KEY]);
 
   const loadInsights = useCallback(async () => {
     setLoading(true);
@@ -158,7 +167,27 @@ const AIInsights = () => {
     } finally {
       setLoading(false);
     }
-  }, [applyInsightsResult]);
+  }, [applyInsightsResult, GOALS_CACHE_KEY]);
+
+  const sendChat = useCallback(async () => {
+    const prompt = chatInput.trim();
+    if (!prompt) return;
+
+    setChatError(null);
+    setChatLoading(true);
+    setChatInput("");
+    setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+
+    try {
+      const res = await askAiAssistant({ prompt });
+      setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Assistant request failed";
+      setChatError(message);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput]);
 
   const ensureDetailsThenOpen = useCallback(
     async () => {
@@ -364,27 +393,81 @@ const AIInsights = () => {
           <Lightbulb className="w-5 h-5 text-primary" />
           <h3 className="font-semibold text-foreground">Ask AI Assistant</h3>
         </div>
-        <div className="bg-secondary rounded-lg p-4 mb-4">
-          <p className="text-sm text-muted-foreground italic">
-            "What skills should I learn next to become a senior developer?"
-          </p>
-        </div>
-        <div className="bg-muted/50 rounded-lg p-4 gradient-border ml-4">
-          <p className="text-sm text-foreground">
-            Based on your current profile, I recommend focusing on these areas:
-          </p>
-          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-            <li>• System Design & Architecture patterns</li>
-            <li>• Advanced TypeScript & design patterns</li>
-            <li>• Cloud services (AWS/GCP) with focus on serverless</li>
-            <li>• Performance optimization & monitoring</li>
-          </ul>
-        </div>
-        <div className="mt-4">
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-            Start New Conversation
-          </Button>
-        </div>
+        {!chatOpen ? (
+          <div>
+            <div className="bg-secondary rounded-lg p-4 mb-4">
+              <p className="text-sm text-muted-foreground italic">
+                "What skills should I learn next to become a senior developer?"
+              </p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4 gradient-border ml-4">
+              <p className="text-sm text-foreground">Ask a question and I’ll answer using your resume + goals.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Examples: “What should I improve in my resume?”, “What projects should I build next?”, “Which role suits me best?”
+              </p>
+            </div>
+            <div className="mt-4">
+              <Button
+                onClick={() => {
+                  setChatOpen(true);
+                  setMessages([]);
+                  setChatError(null);
+                }}
+              >
+                Start New Conversation
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {messages.length === 0 ? (
+              <div className="bg-secondary rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">Ask anything — I’ll use your latest resume + goals to answer.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((m, idx) => (
+                  <div
+                    key={`${m.role}-${idx}`}
+                    className={
+                      m.role === "user"
+                        ? "bg-secondary rounded-lg p-4"
+                        : "bg-muted/50 rounded-lg p-4 gradient-border ml-4"
+                    }
+                  >
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{m.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {chatLoading ? (
+              <div className="bg-muted/50 rounded-lg p-4 gradient-border ml-4">
+                <p className="text-sm text-muted-foreground">Thinking…</p>
+              </div>
+            ) : null}
+
+            {chatError ? <p className="text-xs text-destructive">{chatError}</p> : null}
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={chatInput}
+                placeholder="Ask a question…"
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void sendChat();
+                  }
+                }}
+                disabled={chatLoading}
+              />
+              <Button onClick={() => void sendChat()} disabled={chatLoading || !chatInput.trim()} className="sm:w-auto">
+                {chatLoading ? "Sending…" : "Send"}
+              </Button>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Detailed sections (only shown on click) */}

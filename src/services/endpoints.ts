@@ -2,6 +2,7 @@ export const endpoints = {
   auth: {
     register: "/auth/register",
     login: "/auth/login",
+    google: "/auth/google",
   },
   notes: {
     list: "/notes",
@@ -28,5 +29,6 @@ export const endpoints = {
     analyzeResume: "/ai/analyze-resume",
     insights: "/ai/insights",
     insightsLatest: "/ai/insights/latest",
+    skillProgress: "/ai/skill-progress",
   },
 } as const;

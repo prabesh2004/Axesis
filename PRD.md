@@ -40,6 +40,7 @@ This is **not** intended to be a commercial SaaS. It is an interview‑grade eng
 ### Secondary User (Future Scope)
 
 * Any knowledge worker managing learning content
+* Users from any background (not only tech) — UI and defaults should avoid tech-only assumptions
 
 ---
 

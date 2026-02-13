@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import StatCard from "@/components/dashboard/StatCard";
@@ -24,8 +23,9 @@ import { listNotes } from "@/services/notes";
 import { listProjects } from "@/services/projects";
 import { getLatestResume } from "@/services/resume";
 import { getGoals } from "@/services/goals";
-import { getLatestAiInsights } from "@/services/ai";
-import type { AiInsightsResponse, Note, Project } from "@/types/models";
+import { getLatestAiInsights, getSkillProgress } from "@/services/ai";
+import type { AiInsightsResponse, Note, Project, ResumeAnalysis, SkillProgressResponse } from "@/types/models";
+import { getCurrentUserId } from "@/services/authIdentity";
 
 function toDate(value: string | undefined): Date | null {
   if (!value) return null;
@@ -71,9 +71,9 @@ function computeStreakDays(dates: Date[]): number {
   return streak;
 }
 
-function readCachedInsights(): AiInsightsResponse | null {
+function readCachedInsights(userId: string): AiInsightsResponse | null {
   try {
-    const raw = sessionStorage.getItem("aiInsights.cache.v1");
+    const raw = sessionStorage.getItem(`aiInsights.cache.v1.${userId}`);
     if (!raw) return null;
     return JSON.parse(raw) as AiInsightsResponse;
   } catch {
@@ -81,40 +81,55 @@ function readCachedInsights(): AiInsightsResponse | null {
   }
 }
 
+function normalizeSkill(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.,;:]+$/g, "");
+}
+
 export default function Index() {
+  const userId = getCurrentUserId() ?? "anon";
   const notesQuery = useQuery({
-    queryKey: ["notes"],
+    queryKey: ["notes", userId],
     queryFn: listNotes,
     staleTime: 30_000,
   });
 
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", userId],
     queryFn: listProjects,
     staleTime: 30_000,
   });
 
   const resumeQuery = useQuery({
-    queryKey: ["resume", "latest"],
+    queryKey: ["resume", "latest", userId],
     queryFn: getLatestResume,
     staleTime: 60_000,
     retry: false,
   });
 
   const goalsQuery = useQuery({
-    queryKey: ["goals"],
+    queryKey: ["goals", userId],
     queryFn: getGoals,
     staleTime: 60_000,
   });
 
   const insightsLatestQuery = useQuery({
-    queryKey: ["ai", "insights", "latest"],
+    queryKey: ["ai", "insights", "latest", userId],
     queryFn: getLatestAiInsights,
     staleTime: 60_000,
     retry: false,
   });
 
-  const cachedInsights = useMemo(() => readCachedInsights(), []);
+  const skillProgressQuery = useQuery({
+    queryKey: ["ai", "skill-progress", userId],
+    queryFn: getSkillProgress,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const cachedInsights = useMemo(() => readCachedInsights(userId), [userId]);
   const insights = (insightsLatestQuery.data ?? cachedInsights) as AiInsightsResponse | null;
 
   const notes = (notesQuery.data ?? []) as Note[];
@@ -142,7 +157,11 @@ export default function Index() {
 
   const insightsCount = insights?.insights?.length ?? 0;
   const recommendationsCount = insights?.insights?.filter((i) => i.type === "recommendation").length ?? 0;
-  const focusArea = insights?.skillGapAnalysis?.gaps?.[0]?.skill ?? null;
+  const focusArea =
+    insights?.skillGapAnalysis?.gaps?.[0]?.skill ??
+    resumeQuery.data?.analysis?.gaps?.[0] ??
+    insights?.insights?.[0]?.title ??
+    null;
 
   const activityDates = useMemo(() => {
     const ds: Date[] = [];
@@ -167,6 +186,9 @@ export default function Index() {
     const interests = goalsQuery.data?.interests?.filter(Boolean) ?? [];
     return roles[0] ?? interests[0] ?? null;
   }, [goalsQuery.data]);
+
+  const nextGoalLabel = nextGoal ?? (goalsQuery.data ? "Add a target role or interest" : "Set your goals");
+  const focusAreaLabel = focusArea ?? (insights ? "Review your insights" : "Generate AI Insights");
 
   const stats = useMemo(
     () => [
@@ -245,25 +267,93 @@ export default function Index() {
     return items.slice(0, 6).map(({ date: _d, ...rest }) => rest);
   }, [notes, projects, resumeUploadedAt, resumeQuery.data?.fileName, insights?.generatedAt]);
 
-  const skills = useMemo(() => {
-    const counts = new Map<string, number>();
+  const heuristicSkills = useMemo(() => {
+    const resumeAnalysis: ResumeAnalysis | undefined = resumeQuery.data?.analysis;
+
+    const projectCounts = new Map<string, number>();
     for (const p of projects) {
       for (const tech of p.technologies ?? []) {
-        const key = tech.trim();
+        const key = normalizeSkill(tech);
         if (!key) continue;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+        projectCounts.set(key, (projectCounts.get(key) ?? 0) + 1);
       }
     }
-    const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-    const top = entries.slice(0, 4);
-    const max = top[0]?.[1] ?? 1;
+
+    const strengthSkills = new Set<string>();
+    const addStrengths = (values: string[] | undefined) => {
+      for (const v of values ?? []) {
+        const key = normalizeSkill(v);
+        if (!key) continue;
+        strengthSkills.add(key);
+      }
+    };
+    addStrengths(insights?.skillGapAnalysis?.strengths);
+    addStrengths(resumeAnalysis?.strengths);
+
+    const gapPenaltyBySkill = new Map<string, number>();
+    for (const g of insights?.skillGapAnalysis?.gaps ?? []) {
+      const key = normalizeSkill(g.skill);
+      if (!key) continue;
+      const penalty = g.priority === "high" ? 30 : g.priority === "medium" ? 20 : 10;
+      gapPenaltyBySkill.set(key, Math.max(gapPenaltyBySkill.get(key) ?? 0, penalty));
+    }
+    // Resume analysis gaps may be less structured; treat as mild penalty.
+    for (const g of resumeAnalysis?.gaps ?? []) {
+      const key = normalizeSkill(g);
+      if (!key) continue;
+      gapPenaltyBySkill.set(key, Math.max(gapPenaltyBySkill.get(key) ?? 0, 10));
+    }
+
+    const allSkills = new Set<string>();
+    for (const k of projectCounts.keys()) allSkills.add(k);
+    for (const k of strengthSkills) allSkills.add(k);
+    for (const k of gapPenaltyBySkill.keys()) allSkills.add(k);
+
+    const maxProjectCount = Math.max(1, ...Array.from(projectCounts.values()));
+
+    const scored = Array.from(allSkills).map((skill) => {
+      const count = projectCounts.get(skill) ?? 0;
+      const hasStrength = strengthSkills.has(skill);
+      const gapPenalty = gapPenaltyBySkill.get(skill) ?? 0;
+
+      // Start from evidence: projects weigh most. Strengths help. Gaps reduce.
+      let score = 0;
+      if (count > 0) {
+        score = 50 + Math.round((count / maxProjectCount) * 50);
+      } else if (hasStrength) {
+        score = 65;
+      } else {
+        score = 45;
+      }
+
+      if (hasStrength) score += 10;
+      score -= gapPenalty;
+      score = Math.max(10, Math.min(100, score));
+
+      return { skill, percentage: score };
+    });
+
+    scored.sort((a, b) => b.percentage - a.percentage);
+
     const palette = ["cyan", "purple", "green", "orange"] as const;
-    return top.map(([skill, count], idx) => ({
-      skill,
-      percentage: Math.round((count / max) * 100),
+    return scored.slice(0, 4).map((item, idx) => ({
+      ...item,
       color: palette[idx % palette.length],
     }));
-  }, [projects]);
+  }, [projects, insights?.skillGapAnalysis?.strengths, insights?.skillGapAnalysis?.gaps, resumeQuery.data?.analysis]);
+
+  const skills = useMemo(() => {
+    const data = skillProgressQuery.data as SkillProgressResponse | null | undefined;
+    if (data?.skills?.length) {
+      const palette = ["cyan", "purple", "green", "orange"] as const;
+      return data.skills.slice(0, 4).map((s, idx) => ({
+        skill: s.skill,
+        percentage: Math.max(0, Math.min(100, Math.round(s.percentage))),
+        color: palette[idx % palette.length],
+      }));
+    }
+    return heuristicSkills;
+  }, [skillProgressQuery.data, heuristicSkills]);
 
   return (
     <DashboardLayout title="Dashboard" subtitle="Welcome back! Here's your overview.">
@@ -288,12 +378,6 @@ export default function Index() {
               <Clock className="w-5 h-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
             </div>
-            <Link
-              to="/notes"
-              className="text-sm text-primary hover:text-primary/80 transition-colors"
-            >
-              View all →
-            </Link>
           </div>
           <div>
             {activities.length ? (
@@ -322,7 +406,7 @@ export default function Index() {
               ))
             ) : (
               <p className="text-sm text-muted-foreground">
-                Add technologies to your projects to see skill progress.
+                Add projects, upload your resume, or generate AI Insights to see skill progress.
               </p>
             )}
           </div>
@@ -344,7 +428,7 @@ export default function Index() {
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">Focus Area</p>
             <p className="text-foreground font-medium">
-              {focusArea ?? "Generate AI Insights"}
+              {focusAreaLabel}
             </p>
           </div>
           <div className="p-4 bg-secondary rounded-lg">
@@ -353,7 +437,7 @@ export default function Index() {
           </div>
           <div className="p-4 bg-secondary rounded-lg">
             <p className="text-sm text-muted-foreground mb-1">Next Goal</p>
-            <p className="text-foreground font-medium">{nextGoal ?? "Add goals in Resume"}</p>
+            <p className="text-foreground font-medium">{nextGoalLabel}</p>
           </div>
         </div>
       </motion.div>

@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Note } from "@/types/models";
 import * as notesService from "@/services/notes";
+import { getCurrentUserId } from "@/services/authIdentity";
 
 const keys = {
-  all: ["notes"] as const,
+  all: (userId: string | null) => ["notes", userId ?? "anon"] as const,
 };
 
 export function useNotesQuery() {
+  const userId = getCurrentUserId();
   return useQuery({
-    queryKey: keys.all,
+    queryKey: keys.all(userId),
     queryFn: notesService.listNotes,
   });
 }
@@ -18,7 +20,7 @@ export function useCreateNoteMutation() {
   return useMutation({
     mutationFn: (input: Pick<Note, "title" | "content" | "tags">) => notesService.createNote(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }
@@ -29,7 +31,7 @@ export function useUpdateNoteMutation() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Pick<Note, "title" | "content" | "tags">> }) =>
       notesService.updateNote(id, patch),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }
@@ -39,7 +41,7 @@ export function useDeleteNoteMutation() {
   return useMutation({
     mutationFn: (id: string) => notesService.deleteNote(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: keys.all(getCurrentUserId()) });
     },
   });
 }

@@ -1,9 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
+import { createHash } from "node:crypto";
 
 import { Resume } from "../models/Resume.js";
 import { extractResumeText, isSupportedResumeMimeType } from "../services/resumeParser.js";
 
 const MAX_TEXT_LENGTH = 200_000;
+
+function sha256Text(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
 
 export async function uploadResume(req: Request, res: Response, next: NextFunction) {
   try {
@@ -31,6 +36,9 @@ export async function uploadResume(req: Request, res: Response, next: NextFuncti
       fileName: file.originalname,
       mimeType: file.mimetype,
       text,
+      textHash: sha256Text(text),
+      analysis: undefined,
+      analyzedAt: undefined,
     });
 
     return res.status(201).json({

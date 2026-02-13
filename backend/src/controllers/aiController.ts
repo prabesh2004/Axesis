@@ -1,9 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 import { createChatCompletion, type GroqMessage } from "../services/ai/groqClient.js";
 import { generateGeminiText } from "../services/ai/geminiClient.js";
 import { AiInsights } from "../models/AiInsights.js";
+import { Resume } from "../models/Resume.js";
+import { Goal } from "../models/Goal.js";
+import { Project } from "../models/Project.js";
+import { SkillProgress } from "../models/SkillProgress.js";
 
 const querySchema = z.object({
   prompt: z.string().min(1),
@@ -103,6 +108,21 @@ const insightsResultSchema = z.object({
     .default([]),
 });
 
+const skillProgressResultSchema = z.object({
+  generatedAt: z.string().min(1).optional(),
+  skills: z
+    .array(
+      z.object({
+        skill: z.string().min(1),
+        percentage: z.number().int().min(0).max(100),
+      }),
+    )
+    .min(1)
+    .max(12),
+});
+
+const SKILL_PROGRESS_PROMPT_VERSION = "v2-elaborate";
+
 function extractJson(text: string): unknown {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -115,6 +135,231 @@ function extractJson(text: string): unknown {
   }
 }
 
+function sha256Text(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+function normalizeSkill(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.,;:]+$/g, "");
+}
+
+function sortSkills(skills: Array<{ skill: string; percentage: number }>): Array<{ skill: string; percentage: number }> {
+  return [...skills].sort((a, b) => {
+    if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+    return a.skill.localeCompare(b.skill);
+  });
+}
+
+function computeHeuristicSkillProgress(input: {
+  technologies: string[];
+  resumeText: string;
+  goalsText: string;
+}): Array<{ skill: string; percentage: number }> {
+  const technologies = input.technologies.map((t) => normalizeSkill(t)).filter(Boolean);
+  const text = `${input.resumeText}\n\n${input.goalsText}`.toLowerCase();
+
+  const hasAny = (values: string[]) => values.some((v) => text.includes(v));
+  const countMatches = (needles: string[]) => {
+    const n = needles.map((x) => x.toLowerCase());
+    return technologies.reduce((acc, t) => (n.includes(t.toLowerCase()) ? acc + 1 : acc), 0);
+  };
+
+  // Broad categories that feel closer to the earlier hard-coded style.
+  const categories: Array<{ skill: string; base: number; techNeedles: string[]; boostIfText?: string[] }> = [
+    {
+      skill: "Frontend Development (React/UI)",
+      base: 45,
+      techNeedles: ["React", "Next.js", "TypeScript", "JavaScript", "Tailwind", "CSS", "HTML", "Framer Motion"],
+    },
+    {
+      skill: "Backend Development (APIs)",
+      base: 45,
+      techNeedles: ["Node.js", "Node", "Express", "NestJS", "Java", "Spring", "Python", "Django", "FastAPI"],
+      boostIfText: ["api", "rest", "backend"],
+    },
+    {
+      skill: "Databases (Design & Queries)",
+      base: 40,
+      techNeedles: ["MongoDB", "PostgreSQL", "Postgres", "MySQL", "SQL", "Redis"],
+      boostIfText: ["database", "schema", "aggregation", "index"],
+    },
+    {
+      skill: "Cloud & DevOps (Deployments)",
+      base: 35,
+      techNeedles: ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "CI/CD", "GitHub Actions"],
+      boostIfText: ["deploy", "cloud", "devops"],
+    },
+    {
+      skill: "System Design & Architecture",
+      base: 35,
+      techNeedles: ["Microservices", "Kafka", "RabbitMQ"],
+      boostIfText: ["system design", "architecture", "scalable", "distributed"],
+    },
+    {
+      skill: "Problem Solving (DSA)",
+      base: 30,
+      techNeedles: [],
+      boostIfText: ["leetcode", "dsa", "data structures", "algorithms", "competitive programming"],
+    },
+    {
+      skill: "Communication & Collaboration",
+      base: 35,
+      techNeedles: [],
+      boostIfText: ["collaborat", "stakeholder", "cross-functional", "team"],
+    },
+  ];
+
+  const scored = categories
+    .map((c) => {
+      const techHits = countMatches(c.techNeedles);
+      const textBoost = c.boostIfText && hasAny(c.boostIfText) ? 10 : 0;
+      const techBoost = Math.min(30, techHits * 8);
+      const percentage = Math.max(10, Math.min(95, Math.round(c.base + techBoost + textBoost)));
+      return { skill: c.skill, percentage };
+    })
+    // Avoid showing too many low-signal skills.
+    .filter((s) => s.percentage >= 30);
+
+  // If we have no resume and very few technologies, keep output minimal.
+  const top = sortSkills(scored).slice(0, 6);
+  return top.length ? top : [{ skill: "General Software Development", percentage: 40 }];
+}
+
+export async function getSkillProgress(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const [resume, goals, projects] = await Promise.all([
+      Resume.findOne({ user: userId }).sort({ createdAt: -1 }),
+      Goal.findOne({ user: userId }),
+      Project.find({ user: userId }).sort({ updatedAt: -1, createdAt: -1 }),
+    ]);
+
+    const resumeText = resume?.text?.trim() ? resume.text.trim().slice(0, 60_000) : "";
+    const resumeHash = resume?.textHash?.trim() ? resume.textHash.trim() : (resumeText ? sha256Text(resumeText) : "");
+    const goalsStamp = goals?.updatedAt ? goals.updatedAt.toISOString() : "";
+
+    const techs: string[] = [];
+    let projectsStamp = "";
+    for (const p of projects) {
+      if (!projectsStamp && p.updatedAt) projectsStamp = p.updatedAt.toISOString();
+      for (const t of p.technologies ?? []) techs.push(t);
+    }
+
+    const uniqueTechs = Array.from(
+      new Set(techs.map((t) => normalizeSkill(t)).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b));
+
+    const cacheKey = sha256Text([
+      SKILL_PROGRESS_PROMPT_VERSION,
+      resumeHash || "no-resume",
+      goalsStamp || "no-goals",
+      projectsStamp || "no-projects",
+      uniqueTechs.join("|"),
+    ].join("::"));
+
+    const cached = await SkillProgress.findOne({ user: userId, key: cacheKey });
+    if (cached) {
+      return res.json({
+        generatedAt: cached.generatedAt.toISOString(),
+        skills: cached.skills,
+      });
+    }
+
+    // If there is no resume text and no project technologies, we can't generate useful skill progress.
+    if (!resumeText && uniqueTechs.length === 0) {
+      return res.status(404).json({ message: "No resume or project technologies found to generate skill progress" });
+    }
+
+    const goalsText = goals
+      ? `Target roles: ${goals.targetRoles.join(", ") || "N/A"}. Interests: ${goals.interests.join(", ") || "N/A"}.`
+      : "Target roles: N/A. Interests: N/A.";
+
+    const projectContext = projects.length
+      ? projects
+          .slice(0, 10)
+          .map((p) => `Project: ${p.title}\nStatus: ${p.status}\nTech: ${(p.technologies ?? []).join(", ")}`)
+          .join("\n\n")
+      : "(No projects.)";
+
+    const jsonShape = {
+      generatedAt: "2026-02-12T00:00:00.000Z",
+      skills: [
+        { skill: "Frontend Development (React/UI)", percentage: 80 },
+        { skill: "Backend Development (APIs)", percentage: 70 },
+        { skill: "Databases (Design & Queries)", percentage: 60 },
+        { skill: "System Design & Architecture", percentage: 45 },
+      ],
+    };
+
+    const system =
+      "You are an expert technical recruiter and career coach. " +
+      "You will estimate a user's skill progress based ONLY on evidence in their resume and projects (and goals). " +
+      "Return ONLY valid JSON. No markdown. No extra keys.";
+
+    const prompt =
+      `User resume:\n${resumeText || "(No resume uploaded.)"}\n\n` +
+      `User goals:\n${goalsText}\n\n` +
+      `User projects:\n${projectContext}\n\n` +
+      `Candidate skill list (from projects): ${uniqueTechs.length ? uniqueTechs.join(", ") : "(none)"}\n\n` +
+      "Task:\n" +
+      "- Pick 6 to 10 skills that best represent the user today.\n" +
+      "- Mix skill types: technical areas (frontend/backend/databases/cloud), engineering practices (testing, system design), and at least 1 career/soft skill (communication, collaboration, leadership).\n" +
+      "- Skill names must be descriptive categories (e.g., 'Backend Development (APIs)' not just 'Node.js').\n" +
+      "- For each skill, output an integer percentage 0-100 based on evidence.\n" +
+      "- Keep the percentages stable and conservative (avoid huge swings).\n" +
+      "- If evidence is weak, set a lower percentage and keep the skill name, but do not hallucinate experience.\n\n" +
+      `Return JSON with EXACTLY this shape:\n${JSON.stringify(jsonShape)}`;
+
+    const raw = await generateGeminiText({ system, prompt, temperature: 0 });
+    const parsed = extractJson(raw);
+    const result = skillProgressResultSchema.safeParse(parsed ?? {});
+
+    const generatedAt = new Date().toISOString();
+
+    if (!result.success) {
+      const fallback = {
+        generatedAt,
+        skills: computeHeuristicSkillProgress({ technologies: uniqueTechs, resumeText, goalsText }),
+        raw,
+      } as const;
+
+      await SkillProgress.create({
+        user: userId,
+        key: cacheKey,
+        generatedAt: new Date(generatedAt),
+        skills: fallback.skills,
+      });
+
+      return res.json({ generatedAt, skills: sortSkills(fallback.skills) });
+    }
+
+    const data = {
+      generatedAt,
+      skills: sortSkills(
+        result.data.skills
+        .map((s) => ({ skill: normalizeSkill(s.skill), percentage: s.percentage }))
+        .filter((s) => s.skill && Number.isFinite(s.percentage)),
+      ),
+    };
+
+    await SkillProgress.create({
+      user: userId,
+      key: cacheKey,
+      generatedAt: new Date(generatedAt),
+      skills: data.skills,
+    });
+
+    return res.json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export async function queryAi(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.userId;
@@ -122,20 +367,54 @@ export async function queryAi(req: Request, res: Response, next: NextFunction) {
 
     const input = querySchema.parse(req.body);
 
-    const systemPrompt =
-      "You are an assistant that analyzes a user's resume, notes, and projects and provides concise, actionable guidance. " +
-      "Always include a short explanation for your recommendations.";
+    const [resume, goals] = await Promise.all([
+      Resume.findOne({ user: userId }).sort({ createdAt: -1 }),
+      Goal.findOne({ user: userId }),
+    ]);
 
-    const userContent = input.context
-      ? `Context:\n${input.context}\n\nUser question:\n${input.prompt}`
-      : input.prompt;
+    const resumeText = resume?.text?.trim() ? resume.text.trim().slice(0, 60_000) : "(No resume uploaded.)";
+    const goalsText = goals
+      ? `Target roles: ${goals.targetRoles.join(", ") || "N/A"}. Interests: ${goals.interests.join(", ") || "N/A"}.`
+      : "Target roles: N/A. Interests: N/A.";
+
+    const context = [
+      `User resume:\n${resumeText}`,
+      `User goals:\n${goalsText}`,
+      input.context ? `Additional context:\n${input.context}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const systemPrompt =
+      "You are an AI career assistant. Answer using ONLY the user's resume + goals context provided. " +
+      "Be precise and practical. If the resume doesn't contain enough evidence, say what is missing. " +
+      "Output MUST be plain text only: no markdown, no headings (no '#'), no bold markers (no '**'), no code fences. " +
+      "Prefer short sections and simple '-' bullets. Keep it concise.";
+
+    const userPrompt = `${context}\n\nUser question:\n${input.prompt}`;
 
     const messages: GroqMessage[] = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: userContent },
+      { role: "user", content: userPrompt },
     ];
 
-    const answer = await createChatCompletion({ messages });
+    const raw = await createChatCompletion({ messages, temperature: 0.1 });
+
+    const answer = raw
+      // Headings
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      // Bold/italics/code markers
+      .replace(/\*\*/g, "")
+      .replace(/\*/g, "")
+      .replace(/`/g, "")
+      .replace(/__+/g, "")
+      // Bullet normalization
+      .replace(/^\s*[•]\s+/gm, "- ")
+      .replace(/^\s*[-–—]\s+/gm, "- ")
+      .replace(/^\s*\d+\)\s+/gm, "- ")
+      // Collapse excessive blank lines
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
     return res.json({ answer });
   } catch (err) {
@@ -150,12 +429,27 @@ export async function analyzeResume(req: Request, res: Response, next: NextFunct
 
     const input = analyzeSchema.parse(req.body);
 
+    const normalizedResumeText = input.resumeText.trim();
+    const textHash = sha256Text(normalizedResumeText);
+
+    const storedResume = await Resume.findOne({ user: userId }).sort({ createdAt: -1 });
+
+    if (
+      storedResume &&
+      typeof storedResume.textHash === "string" &&
+      storedResume.textHash === textHash &&
+      storedResume.analysis &&
+      typeof storedResume.analysis === "object"
+    ) {
+      return res.json(storedResume.analysis);
+    }
+
     const goalsText = input.goals
       ? `Target roles: ${(input.goals.targetRoles ?? []).join(", ") || "N/A"}. Interests: ${(input.goals.interests ?? []).join(", ") || "N/A"}.`
       : "Target roles: N/A. Interests: N/A.";
 
     const contextParts = [
-      `Resume:\n${input.resumeText}`,
+      `Resume:\n${normalizedResumeText}`,
       input.projects ? `Projects:\n${input.projects}` : null,
       input.notes ? `Notes:\n${input.notes}` : null,
       `Goals:\n${goalsText}`,
@@ -164,7 +458,8 @@ export async function analyzeResume(req: Request, res: Response, next: NextFunct
     const systemPrompt =
       "You are an expert career coach and resume reviewer. " +
       "Analyze the provided resume and related context. " +
-      "Return ONLY valid JSON with the following keys: score (0-100), summary, strengths (array), gaps (array), recommendations (array), careerPaths (array), nextSteps (array), explanation (short explanation of the score).";
+      "Return ONLY valid JSON with the following keys: score (0-100), summary, strengths (array), gaps (array), recommendations (array), careerPaths (array), nextSteps (array), explanation (short explanation of the score). " +
+      "Important: Use a consistent rubric and avoid random variation. The same resume should receive the same score.";
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -174,7 +469,7 @@ export async function analyzeResume(req: Request, res: Response, next: NextFunct
       },
     ] as const;
 
-    const raw = await createChatCompletion({ messages, temperature: 0.2 });
+    const raw = await createChatCompletion({ messages, temperature: 0 });
     const parsed = extractJson(raw);
     const result = analysisResultSchema.safeParse(parsed ?? {});
 
@@ -190,6 +485,20 @@ export async function analyzeResume(req: Request, res: Response, next: NextFunct
         explanation: "The AI response was not in the expected format.",
         raw,
       });
+    }
+
+    // Best-effort persistence: attach analysis to the latest uploaded resume for this user.
+    if (storedResume) {
+      await Resume.updateOne(
+        { _id: storedResume._id, user: userId },
+        {
+          $set: {
+            textHash,
+            analysis: result.data,
+            analyzedAt: new Date(),
+          },
+        },
+      );
     }
 
     return res.json(result.data);

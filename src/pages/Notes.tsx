@@ -5,6 +5,9 @@ import NoteCard from "@/components/cards/NoteCard";
 import NoteEditor from "@/components/notes/NoteEditor";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Search, Filter, Plus } from "lucide-react";
 import type { Note, NoteAccentColor } from "@/types/models";
@@ -35,6 +38,8 @@ function pickAccentColor(id: string): NoteAccentColor {
 const Notes = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>(undefined);
+  const [search, setSearch] = useState("");
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(() => new Set());
 
   const notesQuery = useNotesQuery();
   const createNote = useCreateNoteMutation();
@@ -42,6 +47,44 @@ const Notes = () => {
   const deleteNote = useDeleteNoteMutation();
 
   const notes = useMemo(() => notesQuery.data ?? [], [notesQuery.data]);
+
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of notes) {
+      for (const t of n.tags ?? []) {
+        const key = t.trim();
+        if (key) set.add(key);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [notes]);
+
+  const filteredNotes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return notes.filter((n) => {
+      if (selectedTags.size) {
+        const hasAny = (n.tags ?? []).some((t) => selectedTags.has(t));
+        if (!hasAny) return false;
+      }
+
+      if (!q) return true;
+      const hay = `${n.title}\n${n.content}\n${(n.tags ?? []).join(" ")}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [notes, search, selectedTags]);
+
+  const clearFilters = () => {
+    setSelectedTags(new Set());
+  };
+
+  const toggleTag = (tag: string, checked: boolean) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(tag);
+      else next.delete(tag);
+      return next;
+    });
+  };
 
   const handleNewNote = () => {
     setEditingNote(undefined);
@@ -90,13 +133,53 @@ const Notes = () => {
           <Input
             placeholder="Search notes..."
             className="pl-10 bg-secondary border-border"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex gap-2 sm:gap-4">
-          <Button variant="outline" className="gap-2 flex-1 sm:flex-none">
-            <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">Filter</span>
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2 flex-1 sm:flex-none">
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filter</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-sm font-medium">Filter notes</p>
+                <Button variant="ghost" size="sm" onClick={clearFilters} disabled={!selectedTags.size}>
+                  Clear
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Tags</p>
+                {availableTags.length ? (
+                  <div className="max-h-56 overflow-y-auto pr-1 space-y-2">
+                    {availableTags.map((tag) => {
+                      const id = `notes-tag-${tag}`;
+                      const checked = selectedTags.has(tag);
+                      return (
+                        <div key={tag} className="flex items-center gap-2">
+                          <Checkbox
+                            id={id}
+                            checked={checked}
+                            onCheckedChange={(v) => toggleTag(tag, Boolean(v))}
+                          />
+                          <Label htmlFor={id} className="text-sm text-foreground">
+                            {tag}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No tags yet.</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 flex-1 sm:flex-none"
             onClick={handleNewNote}
@@ -114,19 +197,27 @@ const Notes = () => {
         transition={{ duration: 0.4 }}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        {notes.map((note, index) => (
-          <NoteCard
-            key={note.id}
-            title={note.title}
-            description={noteDescription(note.content)}
-            tags={note.tags}
-            date={formatNoteDate(note.updatedAt)}
-            accentColor={pickAccentColor(note.id)}
-            delay={index * 0.1}
-            onEdit={() => handleEditNote(note)}
-            onDelete={() => void handleDelete(note.id)}
-          />
-        ))}
+        {filteredNotes.length ? (
+          filteredNotes.map((note, index) => (
+            <NoteCard
+              key={note.id}
+              title={note.title}
+              description={noteDescription(note.content)}
+              tags={note.tags}
+              date={formatNoteDate(note.updatedAt)}
+              accentColor={pickAccentColor(note.id)}
+              delay={index * 0.1}
+              onEdit={() => handleEditNote(note)}
+              onDelete={() => void handleDelete(note.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full">
+            <p className="text-sm text-muted-foreground">
+              No notes found. Try clearing filters or changing your search.
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* Note Editor Modal */}

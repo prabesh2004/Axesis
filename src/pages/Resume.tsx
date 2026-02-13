@@ -10,6 +10,7 @@ import { getLatestResume, uploadResume } from "@/services/resume";
 import { listNotes } from "@/services/notes";
 import { listProjects } from "@/services/projects";
 import type { ResumeAnalysis } from "@/types/models";
+import { getCurrentUserId } from "@/services/authIdentity";
 import {
   CheckCircle,
   AlertCircle,
@@ -39,19 +40,53 @@ const parseTags = (input: string) =>
 
 const Resume = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const userId = getCurrentUserId() ?? "anon";
+  const RESUME_ANALYSIS_CACHE_KEY = `axesis.resumeAnalysis.v1.${userId}`;
   const [goals, setGoals] = useState<GoalState>({
-    targetRoles: ["Full Stack Developer", "Backend Developer"],
-    interests: ["SaaS", "AI tools", "Developer platforms"],
+    targetRoles: [],
+    interests: [],
   });
   const [targetInput, setTargetInput] = useState("");
   const [interestInput, setInterestInput] = useState("");
   const [resumeText, setResumeText] = useState<string>("");
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const [resumeTextHash, setResumeTextHash] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const readCachedAnalysis = (textHash: string): ResumeAnalysis | null => {
+    try {
+      const raw = sessionStorage.getItem(RESUME_ANALYSIS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { textHash?: string; analysis?: ResumeAnalysis };
+      if (!parsed || parsed.textHash !== textHash || !parsed.analysis) return null;
+      return parsed.analysis;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCachedAnalysis = (textHash: string, next: ResumeAnalysis) => {
+    try {
+      sessionStorage.setItem(
+        RESUME_ANALYSIS_CACHE_KEY,
+        JSON.stringify({ textHash, analysis: next, cachedAt: new Date().toISOString() }),
+      );
+    } catch {
+      // Ignore cache failures.
+    }
+  };
+
+  const clearCachedAnalysis = () => {
+    try {
+      sessionStorage.removeItem(RESUME_ANALYSIS_CACHE_KEY);
+    } catch {
+      // Ignore cache failures.
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -78,11 +113,27 @@ const Resume = () => {
         if (!active) return;
         setResumeText(data.text);
         setResumeFileName(data.fileName);
+
+        const textHash = data.textHash ?? null;
+        setResumeTextHash(textHash);
+
+        if (data.analysis) {
+          setAnalysis(data.analysis);
+          if (textHash) writeCachedAnalysis(textHash, data.analysis);
+          return;
+        }
+
+        if (textHash) {
+          const cached = readCachedAnalysis(textHash);
+          if (cached) setAnalysis(cached);
+        }
       })
       .catch(() => {
         if (!active) return;
         setResumeText("");
         setResumeFileName(null);
+        setResumeTextHash(null);
+        setAnalysis(null);
       });
     return () => {
       active = false;
@@ -116,11 +167,15 @@ const Resume = () => {
   const handleFileUpload = async (file: File | null) => {
     if (!file) return;
     setUploadError(null);
+    setAnalysisError(null);
     setIsUploading(true);
     try {
       const result = await uploadResume(file);
       setResumeText(result.text);
       setResumeFileName(result.fileName);
+      setResumeTextHash(result.textHash ?? null);
+      setAnalysis(null);
+      clearCachedAnalysis();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
       setUploadError(message);
@@ -154,6 +209,7 @@ const Resume = () => {
         goals,
       });
       setAnalysis(result);
+      if (resumeTextHash) writeCachedAnalysis(resumeTextHash, result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Analysis failed";
       setAnalysisError(message);
@@ -319,39 +375,36 @@ const Resume = () => {
               <h2 className="text-lg font-semibold text-foreground">
                 Resume Preview
               </h2>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="hidden"
-                    onChange={(event) => handleFileUpload(event.target.files?.[0] ?? null)}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 flex-1 sm:flex-none bg-orange-500 text-white hover:bg-orange-500/90 border-orange-500"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Upload
-                  </Button>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(event) => handleFileUpload(event.target.files?.[0] ?? null)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || isAnalyzing}
+                >
+                  Upload
+                </Button>
+                <Button
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={handleAnalyze}
+                  disabled={isUploading || isAnalyzing}
+                >
+                  {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
+                </Button>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-              <p className="text-xs text-muted-foreground">
-                {resumeFileName ? `Uploaded: ${resumeFileName}` : "No resume uploaded"}
-              </p>
-              <Button
-                size="sm"
-                className="bg-emerald-500 text-white hover:bg-emerald-500/90"
-                onClick={handleAnalyze}
-                disabled={isUploading || isAnalyzing}
-              >
-                {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
-              </Button>
-            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              {resumeFileName ? `Uploaded: ${resumeFileName}` : "No resume uploaded"}
+            </p>
             {uploadError && (
               <p className="text-xs text-destructive mb-4">{uploadError}</p>
             )}

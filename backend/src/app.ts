@@ -11,12 +11,27 @@ import { resumeRouter } from "./routes/resume.js";
 
 export const app = express();
 
+const DEFAULT_CORS_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+];
+
+function getAllowedCorsOrigins(): string[] {
+  const fromEnv = (process.env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return fromEnv.length ? fromEnv : DEFAULT_CORS_ORIGINS;
+}
+
 app.use(
   cors({
-    origin:
-      process.env.CORS_ORIGIN?.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean) ?? ["http://localhost:5173", "http://localhost:8080"],
+    origin: getAllowedCorsOrigins(),
     credentials: true,
   }),
 );

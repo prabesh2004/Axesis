@@ -1,6 +1,15 @@
-import { Link } from "react-router-dom";
-import { Search, Bell, Settings, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getAuthToken, clearAuthToken } from "@/services/authToken";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface HeaderProps {
   title: string;
@@ -8,6 +17,16 @@ interface HeaderProps {
 }
 
 const Header = ({ title, subtitle }: HeaderProps) => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isLoggedIn = Boolean(getAuthToken());
+
+  const handleLogout = () => {
+    clearAuthToken();
+    queryClient.clear();
+    navigate("/login");
+  };
+
   return (
     <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-40">
       <div className="h-full flex items-center justify-between px-6">
@@ -30,22 +49,38 @@ const Header = ({ title, subtitle }: HeaderProps) => {
             />
           </div>
 
-          {/* Icons */}
-          <button className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-          </button>
-
-          <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-            <Settings className="w-5 h-5 text-muted-foreground" />
-          </button>
-
-          <Link
-            to="/login"
-            className="p-2 rounded-lg hover:bg-secondary transition-colors"
-          >
-            <User className="w-5 h-5 text-muted-foreground" />
-          </Link>
+          {isLoggedIn ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-lg hover:bg-secondary"
+                >
+                  <span className="sr-only">Account</span>
+                  <span
+                    className={
+                      "h-8 w-8 rounded-lg flex items-center justify-center transition-colors " +
+                      "bg-primary/20"
+                    }
+                  >
+                    <User className="w-5 h-5 text-primary" />
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              to="/login"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              aria-label="Login"
+            >
+              <User className="w-5 h-5 text-muted-foreground" />
+            </Link>
+          )}
         </div>
       </div>
     </header>

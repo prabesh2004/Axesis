@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, User, Search, Bell, Settings, LogIn, X } from "lucide-react";
+import { Menu, User, Search, LogIn, X } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getAuthToken, clearAuthToken } from "@/services/authToken";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -25,6 +27,15 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebar();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isLoggedIn = Boolean(getAuthToken());
+
+  const handleLogout = () => {
+    clearAuthToken();
+    queryClient.clear();
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,32 +83,36 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-                    <User className="w-5 h-5 text-muted-foreground" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={
+                      "h-9 w-9 rounded-lg " +
+                      (isLoggedIn ? "bg-primary/20 hover:bg-primary/20" : "")
+                    }
+                    aria-label="Account"
+                  >
+                    <User className={"w-5 h-5 " + (isLoggedIn ? "text-primary" : "text-muted-foreground")} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setMobileSearchOpen(true)}>
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell className="w-4 h-4 mr-2" />
-                    Notifications
-                    <span className="ml-auto w-2 h-2 bg-primary rounded-full" />
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/login" className="flex items-center">
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Login
-                    </Link>
-                  </DropdownMenuItem>
+                  {isLoggedIn ? (
+                    <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => setMobileSearchOpen(true)}>
+                        <Search className="w-4 h-4 mr-2" />
+                        Search
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/login" className="flex items-center">
+                          <LogIn className="w-4 h-4 mr-2" />
+                          Login
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

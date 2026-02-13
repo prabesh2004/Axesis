@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { clearUserSessionCaches } from "@/services/sessionCache";
 
 const TOKEN_KEY = "axesis.auth.token";
 
@@ -38,6 +39,7 @@ export function setAuthToken(token: string | null): void {
 }
 
 export function clearAuthToken(): void {
+  clearUserSessionCaches();
   setAuthToken(null);
 }
 

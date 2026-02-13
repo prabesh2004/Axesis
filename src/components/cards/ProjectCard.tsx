@@ -12,7 +12,6 @@ interface ProjectCardProps {
   title: string;
   description: string;
   status: "In Progress" | "Completed" | "Planning";
-  progress: number;
   technologies: string[];
   hasRepo?: boolean;
   hasDemo?: boolean;
@@ -25,7 +24,6 @@ const ProjectCard = ({
   title,
   description,
   status,
-  progress,
   technologies,
   hasRepo = true,
   hasDemo = false,
@@ -37,12 +35,6 @@ const ProjectCard = ({
     "In Progress": "bg-primary/20 text-primary",
     Completed: "bg-emerald-500/20 text-emerald-400",
     Planning: "bg-orange-500/20 text-orange-400",
-  };
-
-  const progressColors = {
-    "In Progress": "from-primary to-accent",
-    Completed: "from-emerald-500 to-emerald-400",
-    Planning: "from-orange-500 to-orange-400",
   };
 
   return (
@@ -87,22 +79,6 @@ const ProjectCard = ({
 
       {/* Description */}
       <p className="text-sm text-muted-foreground mb-4">{description}</p>
-
-      {/* Progress */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between text-sm mb-1.5">
-          <span className="text-muted-foreground">Progress</span>
-          <span className="text-foreground font-medium">{progress}%</span>
-        </div>
-        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.8, delay: delay + 0.2, ease: "easeOut" }}
-            className={`h-full rounded-full bg-gradient-to-r ${progressColors[status]}`}
-          />
-        </div>
-      </div>
 
       {/* Technologies */}
       <div className="flex flex-wrap gap-2 mb-4">
