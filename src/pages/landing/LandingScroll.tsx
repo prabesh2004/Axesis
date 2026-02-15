@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import { motion, useInView, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
 import {
   ArrowRight,
   Atom,
@@ -14,6 +14,9 @@ import {
   Brain,
   Compass,
   Layers,
+  Zap,
+  Shield,
+  BarChart3,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +40,23 @@ const stagger = {
 };
 
 const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
+  hidden: { opacity: 0, scale: 0.92 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+const slideInLeft = {
+  hidden: { opacity: 0, x: -40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+const slideInRight = {
+  hidden: { opacity: 0, x: 40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+const blurIn = {
+  hidden: { opacity: 0, filter: "blur(10px)" },
+  visible: { opacity: 1, filter: "blur(0px)", transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 function Section({
@@ -66,6 +84,27 @@ function Section({
   );
 }
 
+/* ── floating orb component ────────────────────────── */
+
+function FloatingOrb({ className, delay = 0 }: { className: string; delay?: number }) {
+  return (
+    <motion.div
+      className={className}
+      animate={{
+        y: [0, -20, 0],
+        scale: [1, 1.05, 1],
+        opacity: [0.5, 0.8, 0.5],
+      }}
+      transition={{
+        duration: 6,
+        repeat: Infinity,
+        ease: "easeInOut",
+        delay,
+      }}
+    />
+  );
+}
+
 /* ── data ───────────────────────────────────────────── */
 
 const features = [
@@ -90,6 +129,13 @@ const steps = [
   { num: "04", title: "Take action", desc: "Follow clear steps and track progress as you grow." },
 ];
 
+const trustItems = [
+  { icon: Zap, label: "Instant setup" },
+  { icon: Shield, label: "Private & secure" },
+  { icon: BarChart3, label: "Track progress" },
+  { icon: Sparkles, label: "AI-powered" },
+];
+
 /* ── component ──────────────────────────────────────── */
 
 export default function LandingScroll({ initialSectionId }: LandingScrollProps) {
@@ -101,6 +147,20 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 120]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
+  // Magnetic cursor effect for hero
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
+  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left - rect.width / 2) / 25;
+    const y = (e.clientY - rect.top - rect.height / 2) / 25;
+    mouseX.set(x);
+    mouseY.set(y);
+  };
+
   useEffect(() => {
     if (!initialSectionId) return;
     const el = document.getElementById(initialSectionId);
@@ -111,25 +171,39 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* ── HEADER ─────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/60 backdrop-blur-xl">
+      <motion.header
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
+        className="sticky top-0 z-40 border-b border-border/50 bg-background/60 backdrop-blur-xl"
+      >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20">
+          <Link to="/" className="flex items-center gap-3 group">
+            <motion.div
+              whileHover={{ rotate: 180 }}
+              transition={{ duration: 0.5 }}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20"
+            >
               <Atom className="h-5 w-5 text-primary" />
-            </div>
+            </motion.div>
             <span className="text-lg font-semibold text-foreground">Axesis</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            <a href="#features" className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Features
-            </a>
-            <a href="#why" className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Why Axesis
-            </a>
-            <a href="#how-it-works" className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-              How it works
-            </a>
+            {[
+              { href: "#features", label: "Features" },
+              { href: "#why", label: "Why Axesis" },
+              { href: "#how-it-works", label: "How it works" },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="relative rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground group"
+              >
+                {item.label}
+                <span className="absolute bottom-0 left-1/2 h-px w-0 -translate-x-1/2 bg-primary transition-all duration-300 group-hover:w-3/4" />
+              </a>
+            ))}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -147,14 +221,24 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
             )}
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* ── HERO ───────────────────────────────────── */}
-      <div ref={heroRef} className="relative">
-        {/* Ambient orbs */}
+      <div ref={heroRef} className="relative" onMouseMove={handleMouseMove}>
+        {/* Animated floating orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/8 blur-[120px]" />
-          <div className="absolute -top-20 right-1/4 h-[400px] w-[400px] rounded-full bg-accent/6 blur-[100px]" />
+          <FloatingOrb
+            className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/8 blur-[120px]"
+            delay={0}
+          />
+          <FloatingOrb
+            className="absolute -top-20 right-1/4 h-[400px] w-[400px] rounded-full bg-accent/6 blur-[100px]"
+            delay={2}
+          />
+          <FloatingOrb
+            className="absolute top-1/2 left-1/2 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-primary/5 blur-[80px]"
+            delay={4}
+          />
         </div>
 
         <motion.div
@@ -162,12 +246,13 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
           className="relative mx-auto max-w-6xl px-4 pb-16 pt-20 sm:pt-28 lg:pt-36"
         >
           <motion.div
+            style={{ x: springX, y: springY }}
             variants={stagger}
             initial="hidden"
             animate="visible"
             className="mx-auto max-w-3xl text-center"
           >
-            <motion.div variants={fadeUp}>
+            <motion.div variants={blurIn}>
               <Badge variant="secondary" className="mb-6 border-primary/20 bg-primary/10 text-primary">
                 AI-powered career development
               </Badge>
@@ -178,7 +263,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
               className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl"
             >
               Your career,{" "}
-              <span className="gradient-text">organized & guided</span>
+              <span className="text-primary">organized & guided</span>
             </motion.h1>
 
             <motion.p
@@ -190,46 +275,64 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
             <motion.div variants={fadeUp} className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               {isLoggedIn ? (
-                <Button onClick={() => navigate("/dashboard")} size="lg">
-                  Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                  <Button onClick={() => navigate("/dashboard")} size="lg">
+                    Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </motion.div>
               ) : (
                 <>
-                  <Link to="/register">
-                    <Button size="lg" className="px-8">
-                      Start for free <ArrowRight className="ml-2 h-4 w-4" />
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                    <Link to="/register">
+                      <Button size="lg" className="px-8">
+                        Start for free <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                    <Button asChild variant="outline" size="lg">
+                      <a href="#features">Explore features</a>
                     </Button>
-                  </Link>
-                  <Button asChild variant="outline" size="lg">
-                    <a href="#features">Explore features</a>
-                  </Button>
+                  </motion.div>
                 </>
               )}
             </motion.div>
 
             <motion.div variants={fadeUp} className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-              {["Context-aware AI", "Resume analysis", "Goal tracking", "No setup needed"].map((t) => (
-                <span key={t} className="flex items-center gap-1.5">
+              {["Context-aware AI", "Resume analysis", "Goal tracking", "No setup needed"].map((t, i) => (
+                <motion.span
+                  key={t}
+                  className="flex items-center gap-1.5"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 + i * 0.1, duration: 0.4 }}
+                >
                   <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> {t}
-                </span>
+                </motion.span>
               ))}
             </motion.div>
           </motion.div>
         </motion.div>
       </div>
 
-      {/* ── STATS BAR ──────────────────────────────── */}
+      {/* ── TRUST BAR ──────────────────────────────── */}
       <Section className="border-y border-border/50 bg-card/30">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-4 py-10 sm:grid-cols-4">
-          {[
-            { val: "100%", label: "Free to start" },
-            { val: "AI", label: "Personalized guidance" },
-            { val: "All-in-1", label: "Career workspace" },
-            { val: "Fast", label: "Setup in minutes" },
-          ].map((s) => (
-            <motion.div key={s.label} variants={fadeUp} className="text-center">
-              <div className="text-2xl font-bold text-primary">{s.val}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{s.label}</div>
+          {trustItems.map((item, i) => (
+            <motion.div
+              key={item.label}
+              variants={fadeUp}
+              className="flex flex-col items-center gap-2 text-center"
+              whileHover={{ y: -4 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <motion.div
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"
+                whileHover={{ rotate: 10, scale: 1.1 }}
+              >
+                <item.icon className="h-5 w-5 text-primary" />
+              </motion.div>
+              <div className="text-sm font-medium text-foreground">{item.label}</div>
             </motion.div>
           ))}
         </div>
@@ -240,7 +343,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
         <motion.div variants={fadeUp} className="text-center">
           <Badge variant="secondary" className="mb-4">Core features</Badge>
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-            Everything you need, <span className="gradient-text">nothing you don't</span>
+            Everything you need, nothing you don't
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
             Six focused tools that work together to keep your career moving forward.
@@ -248,17 +351,28 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
         </motion.div>
 
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
+          {features.map((f, i) => (
             <motion.div
               key={f.title}
               variants={scaleIn}
-              className="group rounded-xl border border-border/60 bg-card/50 p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_0_30px_hsl(174_72%_50%/0.08)]"
+              whileHover={{ y: -6, transition: { type: "spring", stiffness: 300 } }}
+              className="group relative rounded-xl border border-border/60 bg-card/50 p-6 transition-colors duration-300 hover:border-primary/30 overflow-hidden"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <f.icon className="h-5 w-5 text-primary" />
+              {/* Hover glow effect */}
+              <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                <div className="absolute -inset-1 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
               </div>
-              <h3 className="font-semibold text-foreground">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+
+              <div className="relative">
+                <motion.div
+                  className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20"
+                  whileHover={{ rotate: -10 }}
+                >
+                  <f.icon className="h-5 w-5 text-primary" />
+                </motion.div>
+                <h3 className="font-semibold text-foreground">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -270,7 +384,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
           <motion.div variants={fadeUp} className="text-center">
             <Badge variant="secondary" className="mb-4">Why Axesis</Badge>
             <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-              Built different, <span className="gradient-text">on purpose</span>
+              Built different, on purpose
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
               Not another generic career tool. Axesis understands your unique context.
@@ -278,17 +392,28 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
           </motion.div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {whyItems.map((item) => (
+            {whyItems.map((item, i) => (
               <motion.div
                 key={item.title}
-                variants={fadeUp}
-                className="relative rounded-xl border border-border/40 bg-background/80 p-8 text-center"
+                variants={i === 0 ? slideInLeft : i === 2 ? slideInRight : fadeUp}
+                whileHover={{ scale: 1.03, transition: { type: "spring", stiffness: 300 } }}
+                className="relative rounded-xl border border-border/40 bg-background/80 p-8 text-center overflow-hidden group"
               >
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                  <item.icon className="h-6 w-6 text-primary" />
+                {/* Subtle animated border */}
+                <div className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                  <div className="absolute inset-px rounded-xl bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
+
+                <div className="relative">
+                  <motion.div
+                    className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
+                    whileHover={{ scale: 1.15, rotate: 5 }}
+                  >
+                    <item.icon className="h-6 w-6 text-primary" />
+                  </motion.div>
+                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -300,7 +425,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
         <motion.div variants={fadeUp} className="text-center">
           <Badge variant="secondary" className="mb-4">How it works</Badge>
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-            Four steps to <span className="gradient-text">clarity</span>
+            Four steps to clarity
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
             From scattered thoughts to a focused plan in minutes.
@@ -308,18 +433,38 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
         </motion.div>
 
         <div className="relative mt-12">
-          {/* Vertical line */}
-          <div className="absolute left-6 top-0 hidden h-full w-px bg-border/60 md:block" />
+          {/* Animated vertical line */}
+          <motion.div
+            className="absolute left-6 top-0 hidden w-px bg-gradient-to-b from-primary/60 via-primary/30 to-transparent md:block"
+            initial={{ height: 0 }}
+            whileInView={{ height: "100%" }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          />
           <div className="grid gap-6">
             {steps.map((s, idx) => (
               <motion.div
                 key={s.num}
                 variants={fadeUp}
+                custom={idx}
+                whileHover={{ x: 6, transition: { type: "spring", stiffness: 300 } }}
                 className="relative flex gap-6 md:items-center"
               >
-                <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background text-sm font-bold text-primary">
+                <motion.div
+                  className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background text-sm font-bold text-primary"
+                  whileHover={{ scale: 1.15, borderColor: "hsl(174 72% 50%)" }}
+                  whileInView={{
+                    boxShadow: [
+                      "0 0 0 0 hsl(174 72% 50% / 0)",
+                      "0 0 0 8px hsl(174 72% 50% / 0.1)",
+                      "0 0 0 0 hsl(174 72% 50% / 0)",
+                    ],
+                  }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.2, duration: 1.5 }}
+                >
                   {s.num}
-                </div>
+                </motion.div>
                 <div className="rounded-xl border border-border/40 bg-card/50 p-5 flex-1">
                   <h3 className="font-semibold text-foreground">{s.title}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
@@ -334,32 +479,44 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
       <Section className="border-t border-border/50">
         <div className="relative mx-auto max-w-6xl px-4 py-24">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute bottom-0 left-1/3 h-[300px] w-[300px] rounded-full bg-primary/6 blur-[100px]" />
-            <div className="absolute bottom-10 right-1/4 h-[250px] w-[250px] rounded-full bg-accent/5 blur-[80px]" />
+            <FloatingOrb
+              className="absolute bottom-0 left-1/3 h-[300px] w-[300px] rounded-full bg-primary/6 blur-[100px]"
+              delay={1}
+            />
+            <FloatingOrb
+              className="absolute bottom-10 right-1/4 h-[250px] w-[250px] rounded-full bg-accent/5 blur-[80px]"
+              delay={3}
+            />
           </div>
 
           <motion.div variants={fadeUp} className="relative text-center">
             <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-              Ready to take control of your <span className="gradient-text">career path</span>?
+              Ready to take control of your career path?
             </h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
               Join Axesis and turn your experience into a clear, AI-guided action plan.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               {isLoggedIn ? (
-                <Button onClick={() => navigate("/dashboard")} size="lg">
-                  Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                  <Button onClick={() => navigate("/dashboard")} size="lg">
+                    Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </motion.div>
               ) : (
                 <>
-                  <Link to="/register">
-                    <Button size="lg" className="px-8">
-                      Get started — it's free <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link to="/login">
-                    <Button variant="outline" size="lg">Login</Button>
-                  </Link>
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                    <Link to="/register">
+                      <Button size="lg" className="px-8">
+                        Get started — it's free <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                    <Link to="/login">
+                      <Button variant="outline" size="lg">Login</Button>
+                    </Link>
+                  </motion.div>
                 </>
               )}
             </div>
