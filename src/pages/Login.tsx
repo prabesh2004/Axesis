@@ -28,7 +28,7 @@ const Login = () => {
       clearUserSessionCaches();
       queryClient.clear();
       toast.success("Signed in");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign in failed";
       toast.error(message);
@@ -56,7 +56,7 @@ const Login = () => {
             clearUserSessionCaches();
             queryClient.clear();
             toast.success("Signed in with Google");
-            navigate("/");
+            navigate("/dashboard");
           } catch (err) {
             const message = err instanceof Error ? err.message : "Google sign-in failed";
             toast.error(message);

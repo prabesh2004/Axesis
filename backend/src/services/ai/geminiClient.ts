@@ -18,25 +18,43 @@ function normalizeModel(model: string): string {
   return trimmed.startsWith("models/") ? trimmed : `models/${trimmed}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
+}
+
 function extractCandidateText(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const root = data as any;
-  const text =
-    root?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("") ??
-    root?.candidates?.[0]?.content?.parts?.[0]?.text ??
-    null;
-  return typeof text === "string" && text.trim() ? text.trim() : null;
+  if (!isRecord(data)) return null;
+
+  const candidates = data.candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const first = candidates[0];
+  if (!isRecord(first)) return null;
+
+  const content = first.content;
+  if (!isRecord(content)) return null;
+
+  const parts = content.parts;
+  if (!Array.isArray(parts) || parts.length === 0) return null;
+
+  const texts = parts
+    .map((p) => (isRecord(p) ? p.text : undefined))
+    .filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+
+  const joined = texts.join("").trim();
+  return joined ? joined : null;
 }
 
 async function listModels(apiBase: string, apiKey: string): Promise<string[]> {
   const url = `${apiBase}/models?key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(url, { method: "GET" });
   if (!response.ok) return [];
-  const data = (await response.json()) as any;
-  const models = Array.isArray(data?.models) ? data.models : [];
+  const data = (await response.json()) as unknown;
+  if (!isRecord(data)) return [];
+  const models = Array.isArray(data.models) ? data.models : [];
   return models
-    .map((m: any) => m?.name)
-    .filter((n: any) => typeof n === "string" && n.startsWith("models/"));
+    .map((m) => (isRecord(m) ? m.name : undefined))
+    .filter((n): n is string => typeof n === "string" && n.startsWith("models/"));
 }
 
 async function postGenerateContent(

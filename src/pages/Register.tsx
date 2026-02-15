@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Atom, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
-import { setStoredToken, useRegisterMutation } from "@/hooks/api/useAuth";
+import { setStoredToken, useGoogleLoginMutation, useRegisterMutation } from "@/hooks/api/useAuth";
+import { env } from "@/lib/env";
 import { clearUserSessionCaches } from "@/services/sessionCache";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -16,6 +17,8 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const registerMutation = useRegisterMutation();
+  const googleLoginMutation = useGoogleLoginMutation();
+  const googleBtnRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,12 +29,74 @@ const Register = () => {
       clearUserSessionCaches();
       queryClient.clear();
       toast.success("Account created");
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       toast.error(message);
     }
   };
+
+  useEffect(() => {
+    if (!env.googleClientId) return;
+    if (env.useMockApi) return;
+    if (!googleBtnRef.current) return;
+
+    const existing = document.querySelector("script[data-google-identity]");
+    const script = existing as HTMLScriptElement | null;
+    const ensureInitialized = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: env.googleClientId,
+        ux_mode: "popup",
+        callback: async (response) => {
+          try {
+            const credential = response.credential;
+            if (!credential) throw new Error("Google sign-in did not return a credential");
+            const result = await googleLoginMutation.mutateAsync({ credential });
+            setStoredToken(result.token);
+            clearUserSessionCaches();
+            queryClient.clear();
+            toast.success("Signed in with Google");
+            navigate("/dashboard");
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Google sign-in failed";
+            toast.error(message);
+          }
+        },
+      });
+
+      if (googleBtnRef.current) {
+        googleBtnRef.current.innerHTML = "";
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 360,
+          text: "continue_with",
+        });
+      }
+    };
+
+    if (script) {
+      if (script.getAttribute("data-loaded") === "true") ensureInitialized();
+      else script.addEventListener("load", ensureInitialized);
+      return () => script.removeEventListener("load", ensureInitialized);
+    }
+
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.setAttribute("data-google-identity", "true");
+    s.addEventListener("load", () => {
+      s.setAttribute("data-loaded", "true");
+      ensureInitialized();
+    });
+    document.head.appendChild(s);
+
+    return () => {
+      s.removeEventListener("load", ensureInitialized);
+    };
+  }, [googleLoginMutation, navigate, queryClient]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -54,6 +119,38 @@ const Register = () => {
 
         {/* Form */}
         <div className="bg-card border border-border rounded-2xl p-6">
+          {/* Google Sign In */}
+          {env.useMockApi || !env.googleClientId ? (
+            <Button
+              variant="outline"
+              className="w-full mb-6 h-11 gap-3 border-border bg-secondary hover:bg-secondary/80"
+              disabled
+              title={
+                env.useMockApi
+                  ? "Disable mock API (VITE_USE_MOCK_API=false) to use Google login"
+                  : "Set VITE_GOOGLE_CLIENT_ID to enable Google login"
+              }
+            >
+              Continue with Google
+            </Button>
+          ) : (
+            <div className="w-full mb-6 flex justify-center">
+              <div ref={googleBtnRef} />
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-card text-muted-foreground">
+                or continue with email
+              </span>
+            </div>
+          </div>
+
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">

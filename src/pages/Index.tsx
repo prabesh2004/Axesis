@@ -18,6 +18,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { listNotes } from "@/services/notes";
 import { listProjects } from "@/services/projects";
@@ -235,7 +236,7 @@ export default function Index() {
   );
 
   const activities = useMemo(() => {
-    const items: Array<{ icon: any; title: string; time: string; date: Date }> = [];
+    const items: Array<{ icon: LucideIcon; title: string; time: string; date: Date }> = [];
 
     for (const n of notes) {
       const d = toDate(n.updatedAt) ?? toDate(n.createdAt);

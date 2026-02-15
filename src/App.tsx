@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import Index from "./pages/Index";
+import LandingScroll from "@/pages/landing/LandingScroll";
 import Notes from "./pages/Notes";
 import Projects from "./pages/Projects";
 import Resume from "./pages/Resume";
@@ -23,8 +24,11 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
+          <Route path="/" element={<LandingScroll />} />
+          <Route path="/features" element={<LandingScroll initialSectionId="features" />} />
+          <Route path="/how-it-works" element={<LandingScroll initialSectionId="how-it-works" />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <RequireAuth>
                 <Index />
