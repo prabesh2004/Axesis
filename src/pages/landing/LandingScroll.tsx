@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, useInView, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
+import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
   Atom,
@@ -147,19 +147,8 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 120]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
-  // Magnetic cursor effect for hero
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left - rect.width / 2) / 25;
-    const y = (e.clientY - rect.top - rect.height / 2) / 25;
-    mouseX.set(x);
-    mouseY.set(y);
-  };
+
 
   useEffect(() => {
     if (!initialSectionId) return;
@@ -224,7 +213,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
       </motion.header>
 
       {/* ── HERO ───────────────────────────────────── */}
-      <div ref={heroRef} className="relative" onMouseMove={handleMouseMove}>
+      <div ref={heroRef} className="relative">
         {/* Animated floating orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <FloatingOrb
@@ -246,7 +235,6 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
           className="relative mx-auto max-w-6xl px-4 pb-16 pt-20 sm:pt-28 lg:pt-36"
         >
           <motion.div
-            style={{ x: springX, y: springY }}
             variants={stagger}
             initial="hidden"
             animate="visible"
