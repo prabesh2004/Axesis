@@ -30,34 +30,41 @@ type LandingScrollProps = {
 /* ── animation helpers ──────────────────────────────── */
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, y: 40 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
 };
 
 const scaleIn = {
-  hidden: { opacity: 0, scale: 0.92 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, scale: 0.88 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 const slideInLeft = {
-  hidden: { opacity: 0, x: -40 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, x: -50 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 const slideInRight = {
-  hidden: { opacity: 0, x: 40 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, x: 50 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 const blurIn = {
-  hidden: { opacity: 0, filter: "blur(10px)" },
-  visible: { opacity: 1, filter: "blur(0px)", transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, filter: "blur(12px)" },
+  visible: { opacity: 1, filter: "blur(0px)", transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] as const } },
 };
+
+const rotateIn = {
+  hidden: { opacity: 0, rotate: -5, scale: 0.9 },
+  visible: { opacity: 1, rotate: 0, scale: 1, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+/* ── scroll-reveal wrapper ─────────────────────────── */
 
 function Section({
   children,
@@ -69,7 +76,7 @@ function Section({
   id?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.15 });
+  const inView = useInView(ref, { once: true, amount: 0.08 });
   return (
     <motion.section
       ref={ref}
@@ -81,6 +88,40 @@ function Section({
     >
       {children}
     </motion.section>
+  );
+}
+
+/* ── individual scroll item (for grids) ────────────── */
+
+function ScrollItem({
+  children,
+  className = "",
+  variant = fadeUp as Record<string, any>,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  variant?: Record<string, any>;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.2 });
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial="hidden"
+      animate={inView ? "visible" : "hidden"}
+      variants={{
+        hidden: variant.hidden,
+        visible: {
+          ...variant.visible,
+          transition: { ...(variant.visible?.transition || {}), delay },
+        },
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -340,28 +381,34 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
-            <motion.div
+            <ScrollItem
               key={f.title}
-              variants={scaleIn}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 300 } }}
+              variant={i % 3 === 0 ? slideInLeft : i % 3 === 2 ? slideInRight : scaleIn}
+              delay={i * 0.08}
               className="group relative rounded-xl border border-border/60 bg-card/50 p-6 transition-colors duration-300 hover:border-primary/30 overflow-hidden"
             >
-              {/* Hover glow effect */}
-              <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                <div className="absolute -inset-1 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-              </div>
+              <motion.div
+                whileHover={{ y: -6 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                className="h-full"
+              >
+                {/* Hover glow effect */}
+                <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                  <div className="absolute -inset-1 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+                </div>
 
-              <div className="relative">
-                <motion.div
-                  className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20"
-                  whileHover={{ rotate: -10 }}
-                >
-                  <f.icon className="h-5 w-5 text-primary" />
-                </motion.div>
-                <h3 className="font-semibold text-foreground">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
-              </div>
-            </motion.div>
+                <div className="relative">
+                  <motion.div
+                    className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20"
+                    whileHover={{ rotate: -10 }}
+                  >
+                    <f.icon className="h-5 w-5 text-primary" />
+                  </motion.div>
+                  <h3 className="font-semibold text-foreground">{f.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+                </div>
+              </motion.div>
+            </ScrollItem>
           ))}
         </div>
       </Section>
@@ -381,28 +428,33 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {whyItems.map((item, i) => (
-              <motion.div
+              <ScrollItem
                 key={item.title}
-                variants={i === 0 ? slideInLeft : i === 2 ? slideInRight : fadeUp}
-                whileHover={{ scale: 1.03, transition: { type: "spring", stiffness: 300 } }}
+                variant={i === 0 ? slideInLeft : i === 2 ? slideInRight : rotateIn}
+                delay={i * 0.12}
                 className="relative rounded-xl border border-border/40 bg-background/80 p-8 text-center overflow-hidden group"
               >
-                {/* Subtle animated border */}
-                <div className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                  <div className="absolute inset-px rounded-xl bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
-                </div>
+                <motion.div
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="h-full"
+                >
+                  <div className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                    <div className="absolute inset-px rounded-xl bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
+                  </div>
 
-                <div className="relative">
-                  <motion.div
-                    className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
-                    whileHover={{ scale: 1.15, rotate: 5 }}
-                  >
-                    <item.icon className="h-6 w-6 text-primary" />
-                  </motion.div>
-                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
-                </div>
-              </motion.div>
+                  <div className="relative">
+                    <motion.div
+                      className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
+                      whileHover={{ scale: 1.15, rotate: 5 }}
+                    >
+                      <item.icon className="h-6 w-6 text-primary" />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
+                  </div>
+                </motion.div>
+              </ScrollItem>
             ))}
           </div>
         </div>
@@ -431,33 +483,38 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
           />
           <div className="grid gap-6">
             {steps.map((s, idx) => (
-              <motion.div
+              <ScrollItem
                 key={s.num}
-                variants={fadeUp}
-                custom={idx}
-                whileHover={{ x: 6, transition: { type: "spring", stiffness: 300 } }}
+                variant={fadeUp}
+                delay={idx * 0.15}
                 className="relative flex gap-6 md:items-center"
               >
                 <motion.div
-                  className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background text-sm font-bold text-primary"
-                  whileHover={{ scale: 1.15, borderColor: "hsl(174 72% 50%)" }}
-                  whileInView={{
-                    boxShadow: [
-                      "0 0 0 0 hsl(174 72% 50% / 0)",
-                      "0 0 0 8px hsl(174 72% 50% / 0.1)",
-                      "0 0 0 0 hsl(174 72% 50% / 0)",
-                    ],
-                  }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.2, duration: 1.5 }}
+                  whileHover={{ x: 6 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="flex gap-6 md:items-center w-full"
                 >
-                  {s.num}
+                  <motion.div
+                    className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-background text-sm font-bold text-primary"
+                    whileHover={{ scale: 1.15, borderColor: "hsl(174 72% 50%)" }}
+                    whileInView={{
+                      boxShadow: [
+                        "0 0 0 0 hsl(174 72% 50% / 0)",
+                        "0 0 0 8px hsl(174 72% 50% / 0.1)",
+                        "0 0 0 0 hsl(174 72% 50% / 0)",
+                      ],
+                    }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.2, duration: 1.5 }}
+                  >
+                    {s.num}
+                  </motion.div>
+                  <div className="rounded-xl border border-border/40 bg-card/50 p-5 flex-1">
+                    <h3 className="font-semibold text-foreground">{s.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
+                  </div>
                 </motion.div>
-                <div className="rounded-xl border border-border/40 bg-card/50 p-5 flex-1">
-                  <h3 className="font-semibold text-foreground">{s.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
-                </div>
-              </motion.div>
+              </ScrollItem>
             ))}
           </div>
         </div>
