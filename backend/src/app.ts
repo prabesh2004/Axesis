@@ -20,18 +20,53 @@ const DEFAULT_CORS_ORIGINS = [
   "http://127.0.0.1:8081",
 ];
 
+function normalizeOrigin(origin: string): string {
+  return origin.trim().replace(/\/+$/, "");
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getAllowedCorsOrigins(): string[] {
   const fromEnv = (process.env.CORS_ORIGIN ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-  return fromEnv.length ? fromEnv : DEFAULT_CORS_ORIGINS;
+  const origins = fromEnv.length ? fromEnv : DEFAULT_CORS_ORIGINS;
+  return origins.map(normalizeOrigin);
 }
+
+type AllowedOriginRule =
+  | { kind: "exact"; value: string }
+  | { kind: "pattern"; regex: RegExp };
+
+function buildAllowedOriginRules(origins: string[]): AllowedOriginRule[] {
+  return origins.map((origin) => {
+    if (origin.includes("*")) {
+      const pattern = "^" + escapeRegex(origin).replace(/\\\*/g, ".*") + "$";
+      return { kind: "pattern", regex: new RegExp(pattern) };
+    }
+    return { kind: "exact", value: origin };
+  });
+}
+
+const allowedOrigins = getAllowedCorsOrigins();
+const allowedOriginRules = buildAllowedOriginRules(allowedOrigins);
 
 app.use(
   cors({
-    origin: getAllowedCorsOrigins(),
+    origin: (requestOrigin, callback) => {
+      if (!requestOrigin) return callback(null, true);
+      const normalized = normalizeOrigin(requestOrigin);
+      const allowed = allowedOriginRules.some((rule) => {
+        if (rule.kind === "exact") return rule.value === normalized;
+        return rule.regex.test(normalized);
+      });
+
+      return allowed ? callback(null, true) : callback(null, false);
+    },
     credentials: true,
   }),
 );
