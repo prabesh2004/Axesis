@@ -9,7 +9,7 @@ It includes a React (Vite) frontend and an Express (TypeScript) backend backed b
 - Auth (email/password) + Google sign-in
 - Notes, Projects, Goals
 - Resume upload + AI resume analysis
-- AI insights / skill progress endpoints
+- AI insights/skill progress endpoints
 
 ## Tech stack
 
