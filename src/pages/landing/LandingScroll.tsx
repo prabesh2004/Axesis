@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import type { TargetAndTransition } from "framer-motion";
 import {
   ArrowRight,
   Atom,
@@ -29,10 +30,15 @@ type LandingScrollProps = {
 
 /* ── animation helpers ──────────────────────────────── */
 
+type RevealVariant = {
+  hidden: TargetAndTransition;
+  visible: TargetAndTransition;
+};
+
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 const stagger = {
   hidden: {},
@@ -42,27 +48,27 @@ const stagger = {
 const scaleIn = {
   hidden: { opacity: 0, scale: 0.88 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 const slideInLeft = {
   hidden: { opacity: 0, x: -50 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 const slideInRight = {
   hidden: { opacity: 0, x: 50 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 const blurIn = {
   hidden: { opacity: 0, filter: "blur(12px)" },
   visible: { opacity: 1, filter: "blur(0px)", transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 const rotateIn = {
   hidden: { opacity: 0, rotate: -5, scale: 0.9 },
   visible: { opacity: 1, rotate: 0, scale: 1, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
-};
+} satisfies RevealVariant;
 
 /* ── scroll-reveal wrapper ─────────────────────────── */
 
@@ -96,12 +102,12 @@ function Section({
 function ScrollItem({
   children,
   className = "",
-  variant = fadeUp as Record<string, any>,
+  variant = fadeUp,
   delay = 0,
 }: {
   children: React.ReactNode;
   className?: string;
-  variant?: Record<string, any>;
+  variant?: RevealVariant;
   delay?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -116,7 +122,7 @@ function ScrollItem({
         hidden: variant.hidden,
         visible: {
           ...variant.visible,
-          transition: { ...(variant.visible?.transition || {}), delay },
+          transition: { ...(variant.visible.transition ?? {}), delay },
         },
       }}
     >
@@ -207,7 +213,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
         className="sticky top-0 z-40 border-b border-border/50 bg-background/60 backdrop-blur-xl"
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
             <motion.div
               whileHover={{ rotate: 180 }}
@@ -273,7 +279,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
-          className="relative mx-auto max-w-6xl px-4 pb-16 pt-20 sm:pt-28 lg:pt-36"
+          className="relative mx-auto max-w-7xl px-4 pb-16 pt-20 sm:pt-28 lg:pt-36"
         >
           <motion.div
             variants={stagger}
@@ -346,7 +352,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
       {/* ── TRUST BAR ──────────────────────────────── */}
       <Section className="border-y border-border/50 bg-card/30">
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-4 py-10 sm:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:grid-cols-4">
           {trustItems.map((item, i) => (
             <motion.div
               key={item.label}
@@ -368,7 +374,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
       </Section>
 
       {/* ── FEATURES ───────────────────────────────── */}
-      <Section id="features" className="scroll-mt-20 mx-auto max-w-6xl px-4 py-20">
+      <Section id="features" className="scroll-mt-20 mx-auto max-w-7xl px-4 py-20">
         <motion.div variants={fadeUp} className="text-center">
           <Badge variant="secondary" className="mb-4">Core features</Badge>
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
@@ -415,7 +421,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
       {/* ── WHY AXESIS ─────────────────────────────── */}
       <Section id="why" className="scroll-mt-20 border-y border-border/50 bg-card/20">
-        <div className="mx-auto max-w-6xl px-4 py-20">
+        <div className="mx-auto max-w-7xl px-4 py-20">
           <motion.div variants={fadeUp} className="text-center">
             <Badge variant="secondary" className="mb-4">Why Axesis</Badge>
             <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
@@ -461,7 +467,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
       </Section>
 
       {/* ── HOW IT WORKS ───────────────────────────── */}
-      <Section id="how-it-works" className="scroll-mt-20 mx-auto max-w-6xl px-4 py-20">
+      <Section id="how-it-works" className="scroll-mt-20 mx-auto max-w-7xl px-4 py-20">
         <motion.div variants={fadeUp} className="text-center">
           <Badge variant="secondary" className="mb-4">How it works</Badge>
           <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
@@ -522,7 +528,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
       {/* ── FINAL CTA ──────────────────────────────── */}
       <Section className="border-t border-border/50">
-        <div className="relative mx-auto max-w-6xl px-4 py-24">
+        <div className="relative mx-auto max-w-7xl px-4 py-24">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <FloatingOrb
               className="absolute bottom-0 left-1/3 h-[300px] w-[300px] rounded-full bg-primary/6 blur-[100px]"
@@ -571,7 +577,7 @@ export default function LandingScroll({ initialSectionId }: LandingScrollProps) 
 
       {/* ── FOOTER ─────────────────────────────────── */}
       <footer className="border-t border-border/50">
-        <div className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Atom className="h-4 w-4 text-primary" />
