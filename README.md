@@ -1,73 +1,150 @@
-# Welcome to your Lovable project
+# Axesis
 
-## Project info
+Axesis is an AI-powered career development + knowledge hub.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+It includes a React (Vite) frontend and an Express (TypeScript) backend backed by MongoDB Atlas.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Auth (email/password) + Google sign-in
+- Notes, Projects, Goals
+- Resume upload + AI resume analysis
+- AI insights / skill progress endpoints
 
-**Use Lovable**
+## Tech stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Frontend: React, TypeScript, Vite, Tailwind, shadcn/ui, framer-motion
+- Backend: Node.js, Express, TypeScript, Mongoose
+- Database: MongoDB Atlas
 
-Changes made via Lovable will be committed automatically to this repo.
+## Repo structure
 
-**Use your preferred IDE**
+```
+.
+├── src/            # frontend source
+├── public/         # frontend public assets
+├── backend/        # express + typescript api
+└── README.md
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Local development
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Prerequisites
 
-Follow these steps:
+- Node.js 18+ (Node 20 LTS recommended)
+- A MongoDB Atlas connection string
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 1) Install dependencies
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+From the repo root:
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+npm install
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+Then install backend deps:
+
+```bash
+cd backend
+npm install
+```
+
+### 2) Configure environment variables
+
+#### Backend (`backend/.env`)
+
+Create `backend/.env` (this project loads it from the backend folder):
+
+```bash
+# Server
+PORT=3000
+NODE_ENV=development
+
+# Mongo
+MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/<db>?retryWrites=true&w=majority
+
+# Auth
+JWT_SECRET=change-me
+JWT_EXPIRES_IN=7d
+
+# CORS (comma-separated). You can also use wildcards like https://*.netlify.app
+CORS_ORIGIN=http://localhost:5173
+
+# Google login (required only if you use /auth/google)
+GOOGLE_CLIENT_ID=
+
+# AI providers (required only for the endpoints you use)
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
+
+GEMINI_API_KEY=
+GEMINI_MODEL=models/gemini-1.5-flash
+
+# Resume analysis via OpenRouter (Step model)
+STEP_API_KEY=
+STEP_MODEL=stepfun/step-3.5-flash:free
+OPENROUTER_SITE_URL=
+OPENROUTER_APP_TITLE=Axesis
+```
+
+#### Frontend (`.env` in repo root)
+
+Optional. If you don’t set these, it defaults to `http://localhost:3000` and mock API enabled.
+
+```bash
+VITE_API_BASE_URL=http://localhost:3000
+VITE_USE_MOCK_API=false
+VITE_GOOGLE_CLIENT_ID=
+```
+
+### 3) Run the apps
+
+Backend (in `backend/`):
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Frontend (in repo root):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run dev
+```
 
-**Use GitHub Codespaces**
+Open: `http://localhost:5173`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## API notes
 
-## What technologies are used for this project?
+- Backend exposes routes in two styles for compatibility:
+	- `/auth`, `/notes`, `/projects`, `/goals`, `/ai`, `/resume`
+	- `/api/auth`, `/api/notes`, `/api/projects`, `/api/goals`, `/api/ai`, `/api/resume`
+- Health check: `GET /health` → `{ "ok": true }`
 
-This project is built with:
+## Scripts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Frontend
 
-## How can I deploy this project?
+- `npm run dev` – Vite dev server
+- `npm run build` – production build
+- `npm run lint` – ESLint
+- `npm run preview` – preview the production build
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+### Backend
 
-## Can I connect a custom domain to my Lovable project?
+From `backend/`:
 
-Yes, you can!
+- `npm run dev` – run with watch mode
+- `npm run build` – TypeScript compile to `dist/`
+- `npm start` – run `dist/server.js`
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Deployment (reference)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+One working setup is:
+
+- Frontend: Netlify
+	- Set `VITE_API_BASE_URL` to your backend URL
+	- SPA routing is handled by `public/_redirects`
+- Backend: Render
+	- Set backend env vars in Render (do not rely on local `.env`)
+	- Ensure MongoDB Atlas Network Access allows Render
+
