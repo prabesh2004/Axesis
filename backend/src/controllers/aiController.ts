@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 
 import { createChatCompletion, type GroqMessage } from "../services/ai/groqClient.js";
+import { createOpenRouterChatCompletion } from "../services/ai/openrouterClient.js";
 import { generateGeminiText } from "../services/ai/geminiClient.js";
 import { AiInsights } from "../models/AiInsights.js";
 import { Resume } from "../models/Resume.js";
@@ -469,7 +470,11 @@ export async function analyzeResume(req: Request, res: Response, next: NextFunct
       },
     ] as const;
 
-    const raw = await createChatCompletion({ messages, temperature: 0 });
+    const raw = await createOpenRouterChatCompletion({
+      messages,
+      temperature: 0,
+      enableReasoning: true,
+    });
     const parsed = extractJson(raw);
     const result = analysisResultSchema.safeParse(parsed ?? {});
 
