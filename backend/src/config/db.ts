@@ -14,7 +14,10 @@ export async function connectToDb(): Promise<void> {
   console.log("[backend] connecting to MongoDB...");
 
   await mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 5000,
+    // Allow more time for Render/Atlas cold starts.
+    serverSelectionTimeoutMS: 10_000,
+    socketTimeoutMS: 45_000,
+    // Note: keepAlive is always enabled in Mongoose 8 by default.
   });
 
   // eslint-disable-next-line no-console

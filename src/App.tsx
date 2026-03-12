@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { useServerWarmup } from "@/hooks/useServerWarmup";
 import Index from "./pages/Index";
 import LandingScroll from "@/pages/landing/LandingScroll";
 import Notes from "./pages/Notes";
@@ -17,13 +18,14 @@ import RequireAuth from "@/components/auth/RequireAuth";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <SidebarProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
+// Inner component that can use hooks inside the router context.
+function AppRoutes() {
+  useServerWarmup();
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <Routes>
           <Route path="/" element={<LandingScroll />} />
           <Route path="/features" element={<LandingScroll initialSectionId="features" />} />
           <Route path="/how-it-works" element={<LandingScroll initialSectionId="how-it-works" />} />
@@ -71,6 +73,15 @@ const App = () => (
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+      </>
+  );
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppRoutes />
       </SidebarProvider>
     </TooltipProvider>
   </QueryClientProvider>

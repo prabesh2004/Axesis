@@ -14,6 +14,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [slowServer, setSlowServer] = useState(false);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   const loginMutation = useLoginMutation();
   const googleLoginMutation = useGoogleLoginMutation();
@@ -22,6 +24,8 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Show a "server is waking up" hint if the request takes > 3 s.
+    slowTimerRef.current = setTimeout(() => setSlowServer(true), 3_000);
     try {
       const result = await loginMutation.mutateAsync({ email, password });
       setStoredToken(result.token);
@@ -32,6 +36,9 @@ const Login = () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign in failed";
       toast.error(message);
+    } finally {
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      setSlowServer(false);
     }
   };
 
@@ -220,8 +227,15 @@ const Login = () => {
               disabled={loginMutation.isPending}
               type="submit"
             >
-              Sign In
+              {loginMutation.isPending ? "Signing in…" : "Sign In"}
             </Button>
+
+            {/* Cold-start notice: only appears after ~3 s of waiting */}
+            {loginMutation.isPending && slowServer && (
+              <p className="text-center text-xs text-muted-foreground animate-pulse">
+                Server is waking up — this can take up to 60 s on first load.
+              </p>
+            )}
           </form>
 
           {/* Create Account */}

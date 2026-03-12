@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 
 import { errorMiddleware } from "./middleware/error.js";
 import { authRouter } from "./routes/auth.js";
@@ -70,6 +71,9 @@ app.use(
     credentials: true,
   }),
 );
+
+// Compress all JSON/text responses — meaningfully reduces payload over the wire.
+app.use(compression());
 
 app.use(express.json({ limit: "1mb" }));
 

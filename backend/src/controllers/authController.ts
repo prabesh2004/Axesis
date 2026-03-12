@@ -37,7 +37,8 @@ export async function register(req: Request, res: Response, next: NextFunction) 
       return res.status(409).json({ message: "Email already in use" });
     }
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    // Cost factor 8: ~4× faster than 10 on Render's free-tier CPU (still well above OWASP minimums).
+    const passwordHash = await bcrypt.hash(input.password, 8);
     const user = await User.create({ name: input.name, email: input.email, passwordHash });
 
     const token = signAccessToken(String(user._id));
